@@ -315,6 +315,28 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-device-shell.tablet::before { display: none; }
 .pd-device-shell iframe { display: block; border: none; border-radius: 22px; background: #fff; max-height: 82vh; }
 
+.pd-insight-intro { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+.pd-insight-card {
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--appreciation);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+}
+.pd-insight-card.anomaly { border-left-color: var(--valueadd); }
+.pd-insight-card.concentration { border-left-color: var(--hold); }
+.pd-insight-card.calm { border-left-color: var(--cashflow); }
+.pd-insight-text { font-size: 13.5px; color: var(--text); line-height: 1.55; margin-bottom: 8px; }
+.pd-insight-why {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim);
+  padding-top: 8px; border-top: 1px dashed var(--border-soft);
+}
+.pd-insight-why b { color: var(--text-muted); }
+.pd-insight-empty { font-size: 12.5px; color: var(--text-dim); font-style: italic; padding: 14px 0; }
+
+.pd-ai-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 24px; }
+.pd-ai-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.pd-ai-status { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px; }
+.pd-ai-narration { font-size: 13.5px; color: var(--text); line-height: 1.6; padding: 12px; background: var(--surface); border-radius: 7px; margin-top: 10px; display: none; }
+.pd-ai-narration.show { display: block; }
+
 .pd-footer { padding: 14px 32px; border-top: 1px solid var(--border); background: var(--surface); font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
 
 /* ================= Mobile responsiveness ================= */
@@ -424,6 +446,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <button class="pd-tab" data-panel="journal">JOURNAL</button>
     <button class="pd-tab" data-panel="actions">ACTIONS</button>
     <button class="pd-tab" data-panel="sheet">SHEET</button>
+    <button class="pd-tab" data-panel="insights">INSIGHTS</button>
     <button class="pd-tab" data-panel="architecture">ARCHITECTURE</button>
   </nav>
 
@@ -433,6 +456,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <section class="pd-panel" id="panel-journal"></section>
     <section class="pd-panel" id="panel-actions"></section>
     <section class="pd-panel" id="panel-sheet"></section>
+    <section class="pd-panel" id="panel-insights"></section>
     <section class="pd-panel" id="panel-architecture"></section>
   </main>
 
@@ -474,8 +498,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.3.0';
+  const APP_VERSION = 'v1.4.0';
   const APP_CHANGELOG = [
+    { version:'v1.4.0', date:'2026-07-29', notes:'Added the Insights Engine: real z-score anomaly detection and rule-based diagnostics, fully explainable (every insight shows its exact trigger). Optional progressive-enhancement layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts in natural language when available \u2014 the core insights never depend on it working.' },
     { version:'v1.3.0', date:'2026-07-29', notes:'Real mobile responsiveness pass \u2014 fixed the iOS Safari auto-zoom-on-input bug, stacked property cards on narrow screens, bumped touch targets. Added a Device Preview toggle (Mobile/Tablet) that opens a live, interactive framed instance of the app instead of just claiming it works on phones.' },
     { version:'v1.2.2', date:'2026-07-29', notes:'Fixed Time Machine playback: the previous version eased each segment independently, which decelerated to a stop at every single data point. Rebuilt as one continuous eased sweep across the whole run (smootherstep, no seams) with seamless pause/resume from the exact stopped frame.' },
     { version:'v1.2.1', date:'2026-07-29', notes:'Time Machine playback rebuilt on requestAnimationFrame with eased interpolation between recorded points, plus a smoothly counting readout \u2014 replaces the old setInterval snap-to-frame version. Respects prefers-reduced-motion.' },
@@ -918,6 +943,151 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   }
 
   // ---------------- Architecture (in-app documentation) ----------------
+  // ---------------- Insights Engine: deterministic statistics + rule-based reasoning, fully explainable ----------------
+  function computeZScore(id){
+    const hist = valueHistory[id];
+    if(!hist || hist.length < 5) return null;
+    const changes = [];
+    for(let i=1; i<hist.length; i++){ changes.push((hist[i].value - hist[i-1].value) / hist[i-1].value); }
+    const mean = changes.reduce((a,b)=>a+b,0) / changes.length;
+    const variance = changes.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / changes.length;
+    const std = Math.sqrt(variance) || 0.0001;
+    const last = changes[changes.length - 1];
+    return { z: (last - mean) / std, lastChangePct: last * 100 };
+  }
+
+  function generateInsights(){
+    const insights = [];
+    const owned = DATA.properties.filter(p=>p.status === 'owned');
+    const totalValue = owned.reduce((s,p)=>s+p.current_value,0);
+
+    // 1. Statistical anomaly detection \u2014 real z-score, computed from each property's own recorded history
+    owned.forEach(p=>{
+      const zr = computeZScore(p.id);
+      if(zr && Math.abs(zr.z) >= 2){
+        insights.push({
+          type: 'anomaly',
+          text: p.name + '\u2019s last simulated move (' + (zr.lastChangePct>=0?'+':'') + zr.lastChangePct.toFixed(2) + '%) is statistically unusual for this property.',
+          why: 'Rule: |z-score| \u2265 2.0 against ' + p.name + '\u2019s own history of simulated changes. Actual z = ' + zr.z.toFixed(2) + '.'
+        });
+      }
+    });
+
+    // 2. Concentration rule (mirrors the Sheet's Diversification stat, phrased as a stated rule)
+    const cats = {};
+    owned.forEach(p=>{ cats[p.category] = (cats[p.category]||0) + p.current_value; });
+    let maxCat = null, maxPct = 0;
+    Object.keys(cats).forEach(c=>{
+      const pct = totalValue ? (cats[c]/totalValue*100) : 0;
+      if(pct > maxPct){ maxPct = pct; maxCat = c; }
+    });
+    if(maxCat && maxPct >= 55){
+      insights.push({
+        type: 'concentration',
+        text: CAT_LABEL[maxCat] + ' is ' + maxPct.toFixed(0) + '% of your owned value \u2014 a real concentration, not automatically a problem, but worth naming.',
+        why: 'Rule: any single category \u2265 55% of total owned value triggers this flag. Current: ' + maxPct.toFixed(1) + '%.'
+      });
+    }
+
+    // 3. Cap rate outlier within a category (owned, rented properties only)
+    const rented = owned.filter(p=>p.monthly_rent > 0);
+    const byCat = {};
+    rented.forEach(p=>{
+      const capRate = (p.monthly_rent * 12) / p.current_value * 100;
+      if(!byCat[p.category]) byCat[p.category] = [];
+      byCat[p.category].push({ p, capRate });
+    });
+    Object.keys(byCat).forEach(cat=>{
+      const group = byCat[cat];
+      if(group.length < 2) return;
+      const avg = group.reduce((s,g)=>s+g.capRate,0) / group.length;
+      group.forEach(g=>{
+        if(g.capRate - avg >= 2){
+          insights.push({
+            type: 'calm',
+            text: g.p.name + '\u2019s cap rate (' + g.capRate.toFixed(1) + '%) is well above the ' + CAT_LABEL[cat] + ' average (' + avg.toFixed(1) + '%) in your portfolio.',
+            why: 'Rule: cap rate \u2265 2.0 percentage points above category average. ' + g.p.name + ': ' + g.capRate.toFixed(2) + '% vs avg ' + avg.toFixed(2) + '%.'
+          });
+        }
+      });
+    });
+
+    // 4. Discipline / backlog, reusing the Sheet's own computed thresholds \u2014 same rules, just narrated
+    const s = computeSheet();
+    if(s.discipline < 50){
+      insights.push({ type:'concentration', text:'Discipline has slipped \u2014 ' + (s.daysSinceLog===null?'no journal entries logged yet.':s.daysSinceLog + ' day(s) since your last journal entry.'), why:'Rule: discipline score < 50/100 (decays 10pts/day after a 7-day grace period).' });
+    }
+    if(s.openUrgentCount > 0){
+      insights.push({ type:'concentration', text: s.openUrgentCount + ' urgent action(s) still open.', why:'Rule: any unchecked item in the Urgent list.' });
+    }
+
+    return insights;
+  }
+
+  // ---- optional progressive enhancement: Chrome's on-device Prompt API (Gemini Nano), feature-detected ----
+  async function checkLocalAIAvailability(){
+    try{
+      if(typeof LanguageModel === 'undefined') return 'unsupported';
+      const avail = await LanguageModel.availability();
+      return avail;
+    }catch(e){ return 'unsupported'; }
+  }
+
+  async function narrateInsightsLocally(insights, statusEl, narrationEl){
+    try{
+      statusEl.textContent = 'Requesting a local session from Chrome\u2019s on-device model...';
+      const session = await LanguageModel.create({
+        initialPrompts: [{ role:'system', content:'You are a terse, honest real-estate portfolio analyst. Rephrase the given bullet-point facts into 2-3 natural sentences. Do not invent numbers not given. Do not add advice beyond what is stated.' }]
+      });
+      const factText = insights.map(i=>i.text).join(' | ');
+      statusEl.textContent = 'Generating (running entirely on this device, nothing sent anywhere)...';
+      const result = await session.prompt('Facts: ' + (factText || 'Nothing notable is currently flagged.'));
+      narrationEl.textContent = result;
+      narrationEl.classList.add('show');
+      statusEl.textContent = 'Generated locally via Chrome\u2019s on-device model \u2014 zero network calls, zero cost.';
+    }catch(e){
+      statusEl.textContent = 'Local model call failed (' + e.message + ') \u2014 this API is still an Origin Trial as of 2026, so that\u2019s expected more often than not right now.';
+    }
+  }
+
+  function renderInsights(){
+    const el = document.getElementById('panel-insights');
+    const insights = generateInsights();
+    let html = '<div class="pd-section-title"><span class="n">01</span>EXPLAINABLE INSIGHTS</div>';
+    html += '<div class="pd-insight-intro">Every insight below is generated from statistics and stated rules \u2014 real z-score anomaly detection against each property\u2019s own history, and named thresholds for concentration and cap-rate outliers. No black box: click nothing, and the &ldquo;why&rdquo; is already shown under each one.</div>';
+    if(insights.length === 0){
+      html += '<div class="pd-insight-empty">Nothing flagged right now. Click Simulate Market Update a few times to build enough history for anomaly detection to activate.</div>';
+    } else {
+      insights.forEach(i=>{
+        html += '<div class="pd-insight-card ' + i.type + '"><div class="pd-insight-text">' + i.text + '</div><div class="pd-insight-why"><b>Why:</b> ' + i.why + '</div></div>';
+      });
+    }
+
+    html += '<div class="pd-ai-box">';
+    html += '<div class="pd-ai-head">Optional: narrate with on-device AI</div>';
+    html += '<div class="pd-ai-status" id="pdAiStatus">Checking for Chrome\u2019s built-in Gemini Nano (Prompt API)...</div>';
+    html += '<button class="pd-news-loadbtn" id="pdAiNarrateBtn" style="display:none;">Narrate These Insights</button>';
+    html += '<div class="pd-ai-narration" id="pdAiNarration"></div>';
+    html += '</div>';
+
+    el.innerHTML = html;
+
+    checkLocalAIAvailability().then(status=>{
+      const statusEl = document.getElementById('pdAiStatus');
+      const btn = document.getElementById('pdAiNarrateBtn');
+      if(!statusEl) return;
+      if(status === 'available'){
+        statusEl.textContent = 'Chrome\u2019s on-device model is ready on this browser.';
+        btn.style.display = '';
+        btn.addEventListener('click', ()=>{ narrateInsightsLocally(insights, statusEl, document.getElementById('pdAiNarration')); });
+      } else if(status === 'downloadable' || status === 'downloading'){
+        statusEl.textContent = 'Supported here, but the on-device model hasn\u2019t finished downloading to this browser yet.';
+      } else {
+        statusEl.textContent = 'Not available in this browser right now \u2014 this is Chrome\u2019s on-device Prompt API, still an Origin Trial feature as of 2026, desktop-only, and requires real local hardware. That\u2019s exactly why the insights above never depend on it.';
+      }
+    });
+  }
+
   function renderArchitecture(){
     const el = document.getElementById('panel-architecture');
     const blocks = [
@@ -927,6 +1097,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
+      { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration and cap-rate outliers \u2014 the same statistical foundations anomaly detection and expert systems have used for decades, not a black box. Every insight shows its exact trigger condition. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to rephrase the same facts in natural language \u2014 the model narrates, it never reasons; the underlying rules are the source of truth either way. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
       { h:'Mobile responsiveness', b:'Fixed the real gotchas, not just the visible ones: inputs under 16px font auto-zoom on iOS Safari on focus (fixed via a targeted media query), fixed-width property cards were forced to stack on narrow screens, and touch targets were bumped toward the ~44px comfortable-tap guideline. Same single codebase, mobile-first breakpoints layered on top \u2014 not a separate mobile build.' },
       { h:'Device Preview', b:'Rather than just claim this works on mobile, click <code>Preview: Mobile</code> or <code>Preview: Tablet</code> \u2014 it opens a real, live, fully-interactive instance of this same page inside a sized iframe with a device-style frame around it. Same self-referencing trick a lot of internal component-preview tools use, just aimed at proving responsiveness instead of taking it on faith.' },
       { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
@@ -971,6 +1142,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     renderJournal();
     renderActions();
     renderSheet();
+    renderInsights();
     renderArchitecture();
   }
 
@@ -1052,7 +1224,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   function getCommands(){
     const cmds = [];
     [['overview','Go to Overview'],['properties','Go to Properties'],['journal','Go to Journal'],
-     ['actions','Go to Actions'],['sheet','Go to Sheet'],['architecture','Go to Architecture']].forEach(([panel,label])=>{
+     ['actions','Go to Actions'],['sheet','Go to Sheet'],['insights','Go to Insights'],['architecture','Go to Architecture']].forEach(([panel,label])=>{
       cmds.push({ label, hint:'navigate', keywords: panel, run: ()=>{ switchTab(panel); closeCmdk(); } });
     });
     cmds.push({ label:'Simulate Market Update', hint:'action', keywords:'simulate refresh update market', run: ()=>{ simulateMarketUpdate(); closeCmdk(); } });
