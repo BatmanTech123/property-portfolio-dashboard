@@ -406,8 +406,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.2.0';
+  const APP_VERSION = 'v1.2.1';
   const APP_CHANGELOG = [
+    { version:'v1.2.1', date:'2026-07-29', notes:'Time Machine playback rebuilt on requestAnimationFrame with eased interpolation between recorded points, plus a smoothly counting readout \u2014 replaces the old setInterval snap-to-frame version. Respects prefers-reduced-motion.' },
     { version:'v1.2.0', date:'2026-07-29', notes:'Added the Time Machine \u2014 animated/scrubbable replay of accumulated portfolio history, built entirely from data already being recorded. Also fixed history recording to capture every simulate click instead of deduping by calendar day.' },
     { version:'v1.1.0', date:'2026-07-29', notes:'Added a full command palette (\u2318K / Ctrl+K) \u2014 fuzzy search across navigation, actions, and properties, with keyboard nav and a scroll-and-highlight jump to any property.' },
     { version:'v1.0.0', date:'2026-07-29', notes:'Initial release \u2014 forked and generalized from a personal finance dashboard architecture. Public/private GitHub data split, self-built history, gamified status sheet, live/raw view toggle, simulated market updates.' }
@@ -856,7 +857,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
-      { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. It reconstructs a combined portfolio-value series across every recorded step, then lets you scrub or auto-play through it on an SVG line chart. No new data, no new API, no library \u2014 the value was already being captured, it just wasn\u2019t being shown.' },
+      { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback runs on <code>requestAnimationFrame</code> with eased interpolation between each real recorded point, rather than snapping from data point to data point \u2014 the difference between a slideshow and an animation. Respects <code>prefers-reduced-motion</code>. No new data, no library.' },
       { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
       { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
     ];
@@ -1057,7 +1058,6 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 
   // ---------------- Time Machine ----------------
   let tmSeries = [];
-  let tmPlaying = null;
 
   function getPortfolioHistorySeries(){
     const ids = DATA.properties.filter(p=>p.status==='owned').map(p=>p.id);
@@ -1099,8 +1099,74 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     document.getElementById('pdTmReadout').textContent = 'Step ' + (idx+1) + ' of ' + tmSeries.length + ' \u00b7 ' + new Date(s.date).toLocaleTimeString() + ' \u00b7 ' + fmt$(s.total);
   }
 
+  // ---- smooth playback: requestAnimationFrame + eased interpolation between real data points ----
+  const TM_STEP_MS = 650;
+  let tmRafId = null;
+  let tmAnimFromIdx = 0;
+  let tmAnimStepStart = null;
+  const tmReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+
+  function drawTmInterpolated(fromIdx, toIdx, t){
+    const svg = document.getElementById('pdTmChart');
+    const w = 600, h = 220, pad = 20;
+    const values = tmSeries.map(s=>s.total);
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    function xy(i, v){
+      const x = pad + (tmSeries.length > 1 ? (i/(tmSeries.length-1)) * (w - pad*2) : 0);
+      const y = h - pad - ((v - min) / range) * (h - pad*2);
+      return [x, y];
+    }
+    const fullPts = tmSeries.map((s,i)=>xy(i,s.total).join(',')).join(' ');
+    let activePts = tmSeries.slice(0, fromIdx+1).map((s,i)=>xy(i,s.total).join(',')).join(' ');
+    const v0 = tmSeries[fromIdx].total, v1 = tmSeries[toIdx].total;
+    const interpV = v0 + (v1 - v0) * t;
+    const p0 = xy(fromIdx, v0), p1 = xy(toIdx, v1);
+    const ix = p0[0] + (p1[0] - p0[0]) * t, iy = p0[1] + (p1[1] - p0[1]) * t;
+    if(toIdx !== fromIdx) activePts += ' ' + ix.toFixed(1) + ',' + iy.toFixed(1);
+    svg.innerHTML =
+      '<polyline points="' + fullPts + '" fill="none" stroke="var(--border)" stroke-width="1.5"/>' +
+      '<polyline points="' + activePts + '" fill="none" stroke="var(--cashflow)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="' + ix.toFixed(1) + '" cy="' + iy.toFixed(1) + '" r="4.5" fill="var(--gold)"/>';
+    document.getElementById('pdTmReadout').textContent = 'Step ' + (fromIdx+1) + (toIdx !== fromIdx ? ' \u2192 ' + (toIdx+1) : '') + ' of ' + tmSeries.length + ' \u00b7 ' + fmt$(Math.round(interpV));
+    document.getElementById('pdTmScrubber').value = t >= 1 ? toIdx : fromIdx;
+  }
+
+  function tmAnimationLoop(timestamp){
+    if(tmAnimStepStart === null) tmAnimStepStart = timestamp;
+    const toIdx = Math.min(tmAnimFromIdx + 1, tmSeries.length - 1);
+    if(tmReducedMotion){
+      drawTmInterpolated(toIdx, toIdx, 1);
+      tmAnimFromIdx = toIdx;
+      tmAnimStepStart = null;
+      if(tmAnimFromIdx >= tmSeries.length - 1){ stopTmPlay(); return; }
+      tmRafId = requestAnimationFrame(tmAnimationLoop);
+      return;
+    }
+    const rawT = Math.min(1, (timestamp - tmAnimStepStart) / TM_STEP_MS);
+    drawTmInterpolated(tmAnimFromIdx, toIdx, easeInOutCubic(rawT));
+    if(rawT >= 1){
+      tmAnimFromIdx = toIdx;
+      tmAnimStepStart = null;
+      if(tmAnimFromIdx >= tmSeries.length - 1){ stopTmPlay(); return; }
+    }
+    tmRafId = requestAnimationFrame(tmAnimationLoop);
+  }
+
   function stopTmPlay(){
-    if(tmPlaying){ clearInterval(tmPlaying); tmPlaying = null; document.getElementById('pdTmPlayBtn').innerHTML = '&#9654; Play'; }
+    if(tmRafId){ cancelAnimationFrame(tmRafId); tmRafId = null; }
+    tmAnimStepStart = null;
+    const btn = document.getElementById('pdTmPlayBtn');
+    if(btn) btn.innerHTML = '&#9654; Play';
+  }
+  function startTmPlay(){
+    const scrubber = document.getElementById('pdTmScrubber');
+    tmAnimFromIdx = parseInt(scrubber.value) >= tmSeries.length - 1 ? 0 : parseInt(scrubber.value);
+    tmAnimStepStart = null;
+    document.getElementById('pdTmPlayBtn').innerHTML = '&#9208; Pause';
+    tmRafId = requestAnimationFrame(tmAnimationLoop);
   }
 
   function openTimeMachine(){
@@ -1130,18 +1196,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     document.getElementById('pdTmClose').addEventListener('click', closeTimeMachine);
     document.getElementById('pdTmOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'pdTmOverlay') closeTimeMachine(); });
     const scrubber = document.getElementById('pdTmScrubber');
-    scrubber.addEventListener('input', ()=>{ stopTmPlay(); renderTmFrame(parseInt(scrubber.value)); });
+    scrubber.addEventListener('input', ()=>{ stopTmPlay(); tmAnimFromIdx = parseInt(scrubber.value); renderTmFrame(parseInt(scrubber.value)); });
     document.getElementById('pdTmPlayBtn').addEventListener('click', ()=>{
-      if(tmPlaying){ stopTmPlay(); return; }
-      if(parseInt(scrubber.value) >= tmSeries.length - 1) scrubber.value = 0;
-      document.getElementById('pdTmPlayBtn').innerHTML = '&#9208; Pause';
-      tmPlaying = setInterval(()=>{
-        let idx = parseInt(scrubber.value);
-        if(idx >= tmSeries.length - 1){ stopTmPlay(); return; }
-        idx++;
-        scrubber.value = idx;
-        renderTmFrame(idx);
-      }, 400);
+      if(tmRafId){ stopTmPlay(); } else { startTmPlay(); }
     });
   }
 
