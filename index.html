@@ -238,6 +238,44 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-changelog-date { font-family: var(--font-mono); color: var(--text-dim); min-width: 76px; }
 .pd-changelog-note { color: var(--text-muted); }
 
+.pd-cmdk-hint {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; cursor: pointer;
+}
+.pd-cmdk-hint:hover { color: var(--cashflow); border-color: var(--cashflow); }
+
+.pd-cmdk-overlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(5,7,10,0.72); backdrop-filter: blur(3px);
+  align-items: flex-start; justify-content: center; padding-top: 12vh;
+}
+.pd-cmdk-overlay.active { display: flex; }
+.pd-cmdk-box {
+  width: min(560px, 90vw); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden;
+}
+.pd-cmdk-input {
+  width: 100%; box-sizing: border-box; background: var(--surface2); border: none;
+  border-bottom: 1px solid var(--border); color: var(--text); font-family: var(--font-body);
+  font-size: 15px; padding: 16px 18px; outline: none;
+}
+.pd-cmdk-list { max-height: 320px; overflow-y: auto; padding: 6px; }
+.pd-cmdk-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text);
+}
+.pd-cmdk-item .hint { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+.pd-cmdk-item.selected { background: var(--cashflow-dim); }
+.pd-cmdk-item.selected .hint { color: var(--cashflow); }
+.pd-cmdk-empty { padding: 20px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+.pd-cmdk-foot {
+  display: flex; gap: 16px; padding: 9px 16px; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); background: var(--surface2);
+}
+
+.pd-property.flash { animation: pdFlash 1.4s ease; }
+@keyframes pdFlash { 0%,100% { background: var(--surface); } 30% { background: var(--cashflow-dim); } }
+
 .pd-footer { padding: 14px 32px; border-top: 1px solid var(--border); background: var(--surface); font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
 </style>
 </head>
@@ -283,6 +321,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <button class="pd-view-btn active" id="pdViewLiveBtn">Live Browser</button>
     <button class="pd-view-btn" id="pdViewRawBtn">Raw Fetch (no JS)</button>
     <span class="pd-viewbar-note">See what a link preview or crawler sees vs. what you see &mdash; a demo of why client-rendered apps need this distinction understood.</span>
+    <span class="pd-cmdk-hint" id="pdCmdkHint">&#8984;K</span>
   </div>
 
   <div class="pd-bar" id="pdDataBar">
@@ -323,14 +362,23 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   </div>
 
   <div class="pd-print-only" id="pdPrintView"></div>
+
+  <div class="pd-cmdk-overlay" id="pdCmdkOverlay">
+    <div class="pd-cmdk-box" id="pdCmdkBox">
+      <input type="text" id="pdCmdkInput" class="pd-cmdk-input" placeholder="Type a command or search properties..." autocomplete="off">
+      <div class="pd-cmdk-list" id="pdCmdkList"></div>
+      <div class="pd-cmdk-foot"><span>&uarr;&darr; navigate</span><span>&crarr; select</span><span>esc close</span></div>
+    </div>
+  </div>
 </div>
 
 <script>
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.0.0';
+  const APP_VERSION = 'v1.1.0';
   const APP_CHANGELOG = [
+    { version:'v1.1.0', date:'2026-07-29', notes:'Added a full command palette (\u2318K / Ctrl+K) \u2014 fuzzy search across navigation, actions, and properties, with keyboard nav and a scroll-and-highlight jump to any property.' },
     { version:'v1.0.0', date:'2026-07-29', notes:'Initial release \u2014 forked and generalized from a personal finance dashboard architecture. Public/private GitHub data split, self-built history, gamified status sheet, live/raw view toggle, simulated market updates.' }
   ];
 
@@ -572,7 +620,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       if(p.monthly_rent) meta += '<span>' + fmt$(p.monthly_rent) + '/mo</span>';
     }
     const badge = p.status === 'owned' ? '<span class="pd-badge b-owned">OWNED</span>' : '<span class="pd-badge b-prospect">PROSPECT</span>';
-    return '<div class="pd-property cat-' + p.category + '" data-cat="' + p.category + '">' +
+    return '<div class="pd-property cat-' + p.category + '" data-cat="' + p.category + '" data-id="' + p.id + '">' +
       '<div><div class="pd-pname">' + p.name + '</div><div class="pd-paddr">' + p.address + '</div></div>' +
       '<div class="pd-pbody"><div class="pd-pmeta">' + meta + '</div><div class="pd-pnotes">' + p.notes + '</div></div>' +
       '<div class="pd-pright"><div class="pd-watch-value" style="font-size:15px;">' + fmt$(p.current_value) + '</div>' + badge + '</div>' +
@@ -779,6 +827,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
+      { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
       { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
     ];
     let html = '<div class="pd-section-title"><span class="n">01</span>HOW THIS IS BUILT</div>';
@@ -823,32 +872,36 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   }
 
   // ---------------- Tabs ----------------
+  function switchTab(panel){
+    document.querySelectorAll('.pd-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));
+    const tabBtn = document.querySelector('.pd-tab[data-panel="' + panel + '"]');
+    if(tabBtn) tabBtn.classList.add('active');
+    const panelEl = document.getElementById('panel-' + panel);
+    if(panelEl) panelEl.classList.add('active');
+  }
   function initTabs(){
     document.querySelectorAll('.pd-tab').forEach(tab=>{
-      tab.addEventListener('click', ()=>{
-        document.querySelectorAll('.pd-tab').forEach(t=>t.classList.remove('active'));
-        document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById('panel-' + tab.getAttribute('data-panel')).classList.add('active');
-      });
+      tab.addEventListener('click', ()=>{ switchTab(tab.getAttribute('data-panel')); });
     });
   }
 
   // ---------------- View toggle ----------------
-  function initViewToggle(){
+  function setRawView(isRaw){
+    const overlay = document.getElementById('pdRawOverlay');
     const liveBtn = document.getElementById('pdViewLiveBtn');
     const rawBtn = document.getElementById('pdViewRawBtn');
+    overlay.classList.toggle('active', isRaw);
+    liveBtn.classList.toggle('active', !isRaw);
+    rawBtn.classList.toggle('active', isRaw);
+  }
+  function toggleRawView(){
     const overlay = document.getElementById('pdRawOverlay');
-    liveBtn.addEventListener('click', ()=>{
-      overlay.classList.remove('active');
-      liveBtn.classList.add('active');
-      rawBtn.classList.remove('active');
-    });
-    rawBtn.addEventListener('click', ()=>{
-      overlay.classList.add('active');
-      rawBtn.classList.add('active');
-      liveBtn.classList.remove('active');
-    });
+    setRawView(!overlay.classList.contains('active'));
+  }
+  function initViewToggle(){
+    document.getElementById('pdViewLiveBtn').addEventListener('click', ()=>setRawView(false));
+    document.getElementById('pdViewRawBtn').addEventListener('click', ()=>setRawView(true));
   }
 
   // ---------------- Data bar (GitHub connect) ----------------
@@ -889,6 +942,88 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     }
   }
 
+  // ---------------- Command Palette ----------------
+  let cmdkResults = [];
+  let cmdkSelected = 0;
+
+  function getCommands(){
+    const cmds = [];
+    [['overview','Go to Overview'],['properties','Go to Properties'],['journal','Go to Journal'],
+     ['actions','Go to Actions'],['sheet','Go to Sheet'],['architecture','Go to Architecture']].forEach(([panel,label])=>{
+      cmds.push({ label, hint:'navigate', keywords: panel, run: ()=>{ switchTab(panel); closeCmdk(); } });
+    });
+    cmds.push({ label:'Simulate Market Update', hint:'action', keywords:'simulate refresh update market', run: ()=>{ simulateMarketUpdate(); closeCmdk(); } });
+    cmds.push({ label:'Print Snapshot', hint:'action', keywords:'print export pdf', run: ()=>{ closeCmdk(); printSnapshot(); } });
+    cmds.push({ label:'Toggle Raw / Live View', hint:'action', keywords:'raw fetch crawler view toggle', run: ()=>{ toggleRawView(); closeCmdk(); } });
+    DATA.properties.forEach(p=>{
+      cmds.push({ label:'View: ' + p.name, hint: CAT_LABEL[p.category], keywords: p.name + ' ' + p.address + ' ' + p.category,
+        run: ()=>{
+          switchTab('properties');
+          closeCmdk();
+          setTimeout(()=>{
+            const card = document.querySelector('.pd-property[data-id="' + p.id + '"]');
+            if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+          }, 60);
+        }});
+    });
+    return cmds;
+  }
+
+  function renderCmdkResults(query){
+    const all = getCommands();
+    const q = query.trim().toLowerCase();
+    cmdkResults = q ? all.filter(c => (c.label + ' ' + c.keywords).toLowerCase().includes(q)) : all;
+    cmdkSelected = 0;
+    const listEl = document.getElementById('pdCmdkList');
+    if(cmdkResults.length === 0){
+      listEl.innerHTML = '<div class="pd-cmdk-empty">No matches for &ldquo;' + query + '&rdquo;</div>';
+      return;
+    }
+    listEl.innerHTML = cmdkResults.map((c,i) =>
+      '<div class="pd-cmdk-item' + (i===0?' selected':'') + '" data-idx="' + i + '"><span>' + c.label + '</span><span class="hint">' + c.hint + '</span></div>'
+    ).join('');
+    listEl.querySelectorAll('.pd-cmdk-item').forEach(item=>{
+      item.addEventListener('click', ()=>{ cmdkResults[parseInt(item.getAttribute('data-idx'))].run(); });
+      item.addEventListener('mouseenter', ()=>{ cmdkSelected = parseInt(item.getAttribute('data-idx')); highlightSelected(); });
+    });
+  }
+  function highlightSelected(){
+    document.querySelectorAll('.pd-cmdk-item').forEach((item,i)=>{ item.classList.toggle('selected', i===cmdkSelected); });
+    const sel = document.querySelector('.pd-cmdk-item.selected');
+    if(sel) sel.scrollIntoView({block:'nearest'});
+  }
+  function openCmdk(){
+    document.getElementById('pdCmdkOverlay').classList.add('active');
+    const input = document.getElementById('pdCmdkInput');
+    input.value = '';
+    renderCmdkResults('');
+    setTimeout(()=>input.focus(), 10);
+  }
+  function closeCmdk(){
+    document.getElementById('pdCmdkOverlay').classList.remove('active');
+  }
+  function initCmdk(){
+    const overlay = document.getElementById('pdCmdkOverlay');
+    const input = document.getElementById('pdCmdkInput');
+    document.getElementById('pdCmdkHint').addEventListener('click', openCmdk);
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeCmdk(); });
+    input.addEventListener('input', ()=>renderCmdkResults(input.value));
+    document.addEventListener('keydown', (e)=>{
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if(mod && e.key.toLowerCase() === 'k'){
+        e.preventDefault();
+        overlay.classList.contains('active') ? closeCmdk() : openCmdk();
+        return;
+      }
+      if(!overlay.classList.contains('active')) return;
+      if(e.key === 'Escape'){ closeCmdk(); }
+      else if(e.key === 'ArrowDown'){ e.preventDefault(); cmdkSelected = Math.min(cmdkSelected+1, cmdkResults.length-1); highlightSelected(); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); cmdkSelected = Math.max(cmdkSelected-1, 0); highlightSelected(); }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(cmdkResults[cmdkSelected]) cmdkResults[cmdkSelected].run(); }
+    });
+  }
+
   // ---------------- init ----------------
   async function bootstrap(){
     await loadDataFromGitHub();
@@ -898,6 +1033,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     initDataBar();
     initSimBar();
     initVersionInfo();
+    initCmdk();
   }
   bootstrap();
 })();
