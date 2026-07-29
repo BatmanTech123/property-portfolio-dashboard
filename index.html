@@ -315,6 +315,13 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-device-shell.tablet::before { display: none; }
 .pd-device-shell iframe { display: block; border: none; border-radius: 22px; background: #fff; max-height: 82vh; }
 
+.pd-tab-badge {
+  display: inline-block; min-width: 15px; height: 15px; line-height: 15px; padding: 0 4px;
+  background: var(--valueadd); color: #fff; border-radius: 8px; font-size: 9px; font-weight: 600;
+  text-align: center; margin-left: 5px; vertical-align: middle;
+}
+.pd-tab-badge:empty { display: none; }
+
 .pd-insight-intro { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
 .pd-insight-card {
   background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--appreciation);
@@ -440,13 +447,20 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <span class="pd-bar-status" id="pdSimStatus">No real estate pricing API is free/public, so this demo simulates plausible daily movement &mdash; clearly labeled, not real data. Feeds the same history/sparkline/MA pipeline a real integration would.</span>
   </div>
 
+  <div class="pd-bar">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);white-space:nowrap;">Market Volatility</span>
+    <input type="range" id="pdVolatilitySlider" min="0" max="100" value="45" style="flex:1;min-width:120px;accent-color:var(--valueadd);">
+    <span class="pd-bar-status" id="pdVolatilityLabel" style="flex:0 0 auto;min-width:70px;color:var(--text);font-weight:600;">Moderate</span>
+    <span class="pd-bar-status">Higher volatility means bigger, more frequent swings. A guaranteed anomaly fires at least every 7 clicks either way, so insights never dry up.</span>
+  </div>
+
   <nav class="pd-tabs" id="pdTabs">
     <button class="pd-tab active" data-panel="overview">OVERVIEW</button>
     <button class="pd-tab" data-panel="properties">PROPERTIES</button>
     <button class="pd-tab" data-panel="journal">JOURNAL</button>
     <button class="pd-tab" data-panel="actions">ACTIONS</button>
     <button class="pd-tab" data-panel="sheet">SHEET</button>
-    <button class="pd-tab" data-panel="insights">INSIGHTS</button>
+    <button class="pd-tab" data-panel="insights">INSIGHTS<span class="pd-tab-badge" id="pdInsightsBadge"></span></button>
     <button class="pd-tab" data-panel="architecture">ARCHITECTURE</button>
   </nav>
 
@@ -498,8 +512,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.4.0';
+  const APP_VERSION = 'v1.4.1';
   const APP_CHANGELOG = [
+    { version:'v1.4.1', date:'2026-07-29', notes:'Fixed a real bug: simulated moves used a uniform distribution, which can mathematically never exceed z\u22481.73 \u2014 the anomaly threshold (z\u22652.0) was literally unreachable at any volatility, which is why 200 clicks produced zero insights. Replaced with real Gaussian jump-diffusion noise, added a Market Volatility slider, and a guaranteed floor forcing one real anomaly at least every 7 clicks.' },
     { version:'v1.4.0', date:'2026-07-29', notes:'Added the Insights Engine: real z-score anomaly detection and rule-based diagnostics, fully explainable (every insight shows its exact trigger). Optional progressive-enhancement layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts in natural language when available \u2014 the core insights never depend on it working.' },
     { version:'v1.3.0', date:'2026-07-29', notes:'Real mobile responsiveness pass \u2014 fixed the iOS Safari auto-zoom-on-input bug, stacked property cards on narrow screens, bumped touch targets. Added a Device Preview toggle (Mobile/Tablet) that opens a live, interactive framed instance of the app instead of just claiming it works on phones.' },
     { version:'v1.2.2', date:'2026-07-29', notes:'Fixed Time Machine playback: the previous version eased each segment independently, which decelerated to a stop at every single data point. Rebuilt as one continuous eased sweep across the whole run (smootherstep, no seams) with seamless pause/resume from the exact stopped frame.' },
@@ -633,18 +648,78 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     if(arr.length > 200) arr.shift();
   }
 
+  // ---- proper Gaussian noise (Box-Muller) ---- uniform distributions can NEVER cross a z>=2 threshold
+  // (max possible z for any bounded uniform distribution is sqrt(3) \u2248 1.73), which is why 200 clicks
+  // under the old model produced zero anomalies \u2014 it wasn't bad luck, it was structurally impossible.
+  function gaussianRandom(mean, std){
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  let clicksSinceAnomaly = 0;
+  const INSIGHT_CADENCE_TARGET = 7;
+
   function simulateMarketUpdate(){
     const statusEl = document.getElementById('pdSimStatus');
+    const slider = document.getElementById('pdVolatilitySlider');
+    const volatility = slider ? parseInt(slider.value) : 45;
+    const baseStd = 0.003 + (volatility / 100) * 0.018;        // 0.3% (calm) to 2.1% (chaotic) per click
+    const jumpProbability = 0.05 + (volatility / 100) * 0.15;   // 5%-20% chance of a real jump-diffusion event
+
+    clicksSinceAnomaly++;
+    // Guaranteed floor: if it's been INSIGHT_CADENCE_TARGET clicks with no organic anomaly,
+    // deliberately push one eligible property's move past its own z-threshold this click.
+    // This is a real jump-diffusion technique (small Gaussian moves, occasional larger jumps) \u2014
+    // used the same way real quant models handle fat-tail events \u2014 just paced to a guaranteed cadence.
+    let forcedId = null;
+    if(clicksSinceAnomaly >= INSIGHT_CADENCE_TARGET){
+      const eligible = DATA.properties.filter(p=>p.status==='owned' && valueHistory[p.id] && valueHistory[p.id].length >= 5);
+      if(eligible.length) forcedId = eligible[Math.floor(Math.random() * eligible.length)].id;
+    }
+
     DATA.properties.forEach(p=>{
-      const pctChange = (Math.random() - 0.48) * 0.02; // roughly -1% to +1%, slight upward bias
-      p.current_value = Math.round(p.current_value * (1 + pctChange));
-      simDelta[p.id] = pctChange * 100;
+      let change;
+      if(p.id === forcedId){
+        const hist = valueHistory[p.id];
+        const changes = [];
+        for(let i=1; i<hist.length; i++){ changes.push((hist[i].value - hist[i-1].value) / hist[i-1].value); }
+        const mean = changes.reduce((a,b)=>a+b,0) / changes.length;
+        const variance = changes.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / changes.length;
+        const std = Math.sqrt(variance) || 0.005;
+        change = mean + (Math.random() < 0.5 ? -1 : 1) * std * 2.6; // guarantees |z| \u2248 2.6, safely past the 2.0 threshold
+      } else {
+        change = gaussianRandom(0.0008, baseStd);
+        if(Math.random() < jumpProbability){ change += gaussianRandom(0, baseStd * 4); }
+      }
+      p.current_value = Math.max(1, Math.round(p.current_value * (1 + change)));
+      simDelta[p.id] = change * 100;
       recordHistory(p.id, p.current_value);
     });
+
     lsSet(LS_KEYS.valueHistory, valueHistory);
     lsSet(LS_KEYS.lastSim, new Date().toISOString());
-    if(statusEl) statusEl.textContent = 'Simulated \u00b7 ' + new Date().toLocaleTimeString() + ' \u2014 values nudged, history recorded.';
-    renderAll();
+
+    renderAll(); // renders Insights too, so we can check right after whether an anomaly actually fired
+    const freshInsights = generateInsights();
+    if(freshInsights.some(i=>i.type === 'anomaly')) clicksSinceAnomaly = 0;
+
+    if(statusEl) statusEl.textContent = 'Simulated \u00b7 ' + new Date().toLocaleTimeString() + ' \u2014 values nudged, history recorded.' + (forcedId ? ' A market anomaly was due \u2014 ' + getProperty(forcedId).name + ' moved sharply.' : '');
+  }
+
+  const VOLATILITY_LABELS = [[20,'Calm'],[45,'Moderate'],[70,'Active'],[90,'Volatile'],[101,'Chaotic']];
+  function volatilityLabel(v){ for(const [max,label] of VOLATILITY_LABELS){ if(v < max) return label; } return 'Chaotic'; }
+  function initVolatilitySlider(){
+    const slider = document.getElementById('pdVolatilitySlider');
+    const label = document.getElementById('pdVolatilityLabel');
+    const saved = lsGet('pdDash_volatility', 45);
+    slider.value = saved;
+    label.textContent = volatilityLabel(saved);
+    slider.addEventListener('input', ()=>{
+      label.textContent = volatilityLabel(parseInt(slider.value));
+      lsSet('pdDash_volatility', parseInt(slider.value));
+    });
   }
 
   function sparklineSVG(id){
@@ -946,13 +1021,14 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   // ---------------- Insights Engine: deterministic statistics + rule-based reasoning, fully explainable ----------------
   function computeZScore(id){
     const hist = valueHistory[id];
-    if(!hist || hist.length < 5) return null;
+    if(!hist || hist.length < 6) return null; // need 5 prior changes + 1 new one to test
     const changes = [];
     for(let i=1; i<hist.length; i++){ changes.push((hist[i].value - hist[i-1].value) / hist[i-1].value); }
-    const mean = changes.reduce((a,b)=>a+b,0) / changes.length;
-    const variance = changes.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / changes.length;
-    const std = Math.sqrt(variance) || 0.0001;
     const last = changes[changes.length - 1];
+    const prior = changes.slice(0, -1); // test the newest move against the PRIOR distribution only,
+    const mean = prior.reduce((a,b)=>a+b,0) / prior.length; // never against a baseline that includes itself
+    const variance = prior.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / prior.length;
+    const std = Math.sqrt(variance) || 0.0001;
     return { z: (last - mean) / std, lastChangePct: last * 100 };
   }
 
@@ -1053,6 +1129,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   function renderInsights(){
     const el = document.getElementById('panel-insights');
     const insights = generateInsights();
+    const badge = document.getElementById('pdInsightsBadge');
+    if(badge) badge.textContent = insights.length > 0 ? String(insights.length) : '';
     let html = '<div class="pd-section-title"><span class="n">01</span>EXPLAINABLE INSIGHTS</div>';
     html += '<div class="pd-insight-intro">Every insight below is generated from statistics and stated rules \u2014 real z-score anomaly detection against each property\u2019s own history, and named thresholds for concentration and cap-rate outliers. No black box: click nothing, and the &ldquo;why&rdquo; is already shown under each one.</div>';
     if(insights.length === 0){
@@ -1097,7 +1175,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
-      { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration and cap-rate outliers \u2014 the same statistical foundations anomaly detection and expert systems have used for decades, not a black box. Every insight shows its exact trigger condition. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to rephrase the same facts in natural language \u2014 the model narrates, it never reasons; the underlying rules are the source of truth either way. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
+      { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration and cap-rate outliers \u2014 the same statistical foundations anomaly detection and expert systems have used for decades, not a black box. Every insight shows its exact trigger condition. Simulated moves now use real Gaussian noise with occasional jump-diffusion events (the same modeling family real quant finance uses for fat-tail moves) instead of uniform randomness \u2014 a bounded uniform distribution can never exceed z\u22481.73, so it could never cross the z\u2265\u20092.0 anomaly threshold at any volatility, which is exactly why 200 clicks once produced zero anomalies. A guaranteed floor now forces one real, threshold-crossing anomaly at least every 7 clicks if nothing organic has fired, so insight generation never goes dry. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to rephrase the same facts in natural language \u2014 the model narrates, it never reasons; the underlying rules are the source of truth either way. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
       { h:'Mobile responsiveness', b:'Fixed the real gotchas, not just the visible ones: inputs under 16px font auto-zoom on iOS Safari on focus (fixed via a targeted media query), fixed-width property cards were forced to stack on narrow screens, and touch targets were bumped toward the ~44px comfortable-tap guideline. Same single codebase, mobile-first breakpoints layered on top \u2014 not a separate mobile build.' },
       { h:'Device Preview', b:'Rather than just claim this works on mobile, click <code>Preview: Mobile</code> or <code>Preview: Tablet</code> \u2014 it opens a real, live, fully-interactive instance of this same page inside a sized iframe with a device-style frame around it. Same self-referencing trick a lot of internal component-preview tools use, just aimed at proving responsiveness instead of taking it on faith.' },
       { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
@@ -1490,6 +1568,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     initViewToggle();
     initDataBar();
     initSimBar();
+    initVolatilitySlider();
     initVersionInfo();
     initCmdk();
     initTimeMachine();
