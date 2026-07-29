@@ -233,6 +233,11 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-changelog-toggle { color: var(--text-dim); cursor: pointer; border-bottom: 1px dotted var(--text-dim); }
 .pd-changelog-toggle:hover { color: var(--cashflow); }
 .pd-changelog { text-align: left; max-width: 480px; margin: 14px auto 0; padding-top: 12px; border-top: 1px solid var(--border-soft); display: none; }
+
+#pdConnectToggle { font-size: 11px; }
+.pd-connect-panel { display: none; width: 100%; margin-top: 10px; }
+.pd-connect-panel.open { display: block; }
+.pd-connect-fields { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .pd-changelog-item { display: flex; gap: 10px; padding: 5px 0; font-size: 11px; }
 .pd-changelog-ver { font-family: var(--font-mono); color: var(--gold); min-width: 48px; }
 .pd-changelog-date { font-family: var(--font-mono); color: var(--text-dim); min-width: 76px; }
@@ -321,6 +326,40 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   text-align: center; margin-left: 5px; vertical-align: middle;
 }
 .pd-tab-badge:empty { display: none; }
+
+.pd-lead-controls { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+.pd-lead-card {
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--border);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+}
+.pd-lead-card.hot { border-left-color: var(--valueadd); }
+.pd-lead-card.warm { border-left-color: var(--appreciation); }
+.pd-lead-card.cool { border-left-color: var(--hold); }
+.pd-lead-card.flash { animation: pdFlash 1.4s ease; }
+.pd-lead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.pd-lead-name { font-family: var(--font-mono); font-weight: 600; font-size: 14px; color: var(--text); }
+.pd-lead-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); margin-top: 3px; }
+.pd-lead-score { text-align: right; }
+.pd-lead-score-num { font-family: var(--font-display); font-weight: 600; font-size: 22px; }
+.pd-lead-score-num.hot { color: var(--valueadd); }
+.pd-lead-score-num.warm { color: var(--appreciation); }
+.pd-lead-score-num.cool { color: var(--hold); }
+.pd-lead-score-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.pd-lead-notes { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
+.pd-lead-breakdown { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding-top: 8px; border-top: 1px dashed var(--border-soft); line-height: 1.7; }
+.pd-lead-breakdown b { color: var(--text-muted); }
+.pd-lead-next { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+.pd-lead-next b { color: var(--cashflow); }
+.pd-lead-actions { display: flex; gap: 8px; margin-top: 10px; }
+.pd-lead-btn {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 5px; padding: 5px 10px; cursor: pointer;
+}
+.pd-lead-btn:hover { border-color: var(--cashflow); color: var(--cashflow); }
+.pd-stage-badge {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-dim);
+}
 
 .pd-insight-intro { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
 .pd-insight-card {
@@ -434,13 +473,18 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <span class="pd-cmdk-hint" id="pdCmdkHint">&#8984;K</span>
   </div>
 
-  <div class="pd-bar" id="pdDataBar">
-    <input type="text" id="pdGhOwner" placeholder="GitHub username">
-    <input type="text" id="pdGhRepo" placeholder="private data repo name">
-    <input type="text" id="pdGhPath" placeholder="data.json" value="data.json">
-    <input type="password" id="pdGhToken" placeholder="Personal access token">
-    <button id="pdGhSaveBtn" class="primary">Load My Data</button>
-    <span class="pd-bar-status" id="pdDataStatus">Showing the built-in sample portfolio.</span>
+  <div class="pd-bar" id="pdDataBar" style="flex-direction: column; align-items: flex-start;">
+    <span class="pd-changelog-toggle" id="pdConnectToggle">&#9656; Connect your own data (optional)</span>
+    <div class="pd-connect-panel" id="pdConnectPanel">
+      <div class="pd-connect-fields">
+        <input type="text" id="pdGhOwner" placeholder="GitHub username">
+        <input type="text" id="pdGhRepo" placeholder="private data repo name">
+        <input type="text" id="pdGhPath" placeholder="data.json" value="data.json">
+        <input type="password" id="pdGhToken" placeholder="Personal access token">
+        <button id="pdGhSaveBtn" class="primary">Load My Data</button>
+      </div>
+      <span class="pd-bar-status" id="pdDataStatus">Showing the built-in sample portfolio.</span>
+    </div>
   </div>
 
   <div class="pd-bar">
@@ -471,6 +515,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <button class="pd-tab" data-panel="actions">ACTIONS</button>
     <button class="pd-tab" data-panel="sheet">SHEET</button>
     <button class="pd-tab" data-panel="insights">INSIGHTS<span class="pd-tab-badge" id="pdInsightsBadge"></span></button>
+    <button class="pd-tab" data-panel="leads">LEADS<span class="pd-tab-badge" id="pdLeadsBadge"></span></button>
     <button class="pd-tab" data-panel="architecture">ARCHITECTURE</button>
   </nav>
 
@@ -481,6 +526,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <section class="pd-panel" id="panel-actions"></section>
     <section class="pd-panel" id="panel-sheet"></section>
     <section class="pd-panel" id="panel-insights"></section>
+    <section class="pd-panel" id="panel-leads"></section>
     <section class="pd-panel" id="panel-architecture"></section>
   </main>
 
@@ -522,8 +568,10 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.5.0';
+  const APP_VERSION = 'v1.6.0';
   const APP_CHANGELOG = [
+    { version:'v1.6.0', date:'2026-07-29', notes:'Added Hot Lead Scoring \u2014 a new LEADS tab applying the same explainable rule + z-score anomaly pattern from the Insights Engine to a different business problem: agent lead engagement instead of property value. Fully transparent scoring breakdown per lead, a suggested next step, illustrative commission estimates, a Log Contact action, and a Simulate New Lead Activity generator using the same Gaussian jump-diffusion approach (and the same prior-only z-score fix) proven out on the property side.' },
+    { version:'v1.5.1', date:'2026-07-29', notes:'Collapsed the GitHub connect-your-own-data bar behind a toggle, closed by default \u2014 the always-visible credentials-style form made sense on the real dashboard (where the split protects real data) but was unnecessary friction on this fictional-data demo. Auto-expands for a returning visitor who already has a saved connection.' },
     { version:'v1.5.0', date:'2026-07-29', notes:'Insights now casual/conversational with a rule-generated "next step" per card, plus a dedicated positive callout for whichever property is quietly outperforming its own trend. On-device AI narration updated to match the tone and weave in the same next steps. Added a Property Count slider (3-20) \u2014 more properties means more independent chances for an organic insight each click (verified: 6\u219220 properties roughly doubles the hit rate); changing it fully resets the simulation, which is required for the Time Machine to keep working correctly.' },
     { version:'v1.4.1', date:'2026-07-29', notes:'Fixed a real bug: simulated moves used a uniform distribution, which can mathematically never exceed z\u22481.73 \u2014 the anomaly threshold (z\u22652.0) was literally unreachable at any volatility, which is why 200 clicks produced zero insights. Replaced with real Gaussian jump-diffusion noise, added a Market Volatility slider, and a guaranteed floor forcing one real anomaly at least every 7 clicks.' },
     { version:'v1.4.0', date:'2026-07-29', notes:'Added the Insights Engine: real z-score anomaly detection and rule-based diagnostics, fully explainable (every insight shows its exact trigger). Optional progressive-enhancement layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts in natural language when available \u2014 the core insights never depend on it working.' },
@@ -561,6 +609,15 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
         notes:'Asking $145K. Not yet purchased. Waiting on comps before making an offer.' }
     ],
     watchlist_ids: ['p1','p2','p3','p6'],
+    leads: [
+      { id:'l1', name:'Jordan A.', stage:'showing', source:'Zillow inquiry', budget_min:350000, budget_max:450000, last_contact_days_ago:1, notes:'Pre-approved, looking north side. Attended 2 showings.' },
+      { id:'l2', name:'Morgan T.', stage:'new', source:'Open house sign-in', budget_min:220000, budget_max:280000, last_contact_days_ago:6, notes:'First-time buyer, still researching neighborhoods.' },
+      { id:'l3', name:'Casey R.', stage:'offer', source:'Referral', budget_min:500000, budget_max:600000, last_contact_days_ago:0, notes:'Offer submitted yesterday, awaiting response.' },
+      { id:'l4', name:'Riley P.', stage:'contacted', source:'Facebook ad', budget_min:180000, budget_max:220000, last_contact_days_ago:10, notes:'Went quiet after the initial call.' },
+      { id:'l5', name:'Avery K.', stage:'cold', source:'Website form', budget_min:300000, budget_max:380000, last_contact_days_ago:25, notes:'No response in three weeks.' },
+      { id:'l6', name:'Drew M.', stage:'showing', source:'Zillow inquiry', budget_min:400000, budget_max:500000, last_contact_days_ago:3, notes:'Very engaged, asking good questions.' },
+      { id:'l7', name:'Sam W.', stage:'contacted', source:'Referral', budget_min:260000, budget_max:320000, last_contact_days_ago:4, notes:'Waiting on their own home to sell first.' }
+    ],
     target_allocation: [
       { label:'Cash Flow', pct:'35-40', holdings:'Maple Street, Cedar Ridge' },
       { label:'Appreciation', pct:'20-25', holdings:'Riverside Commons' },
@@ -607,7 +664,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 
   // ---------------- local storage layer ----------------
   const LS_KEYS = { githubCfg:'pdDash_githubCfg', checked:'pdDash_actionsChecked', journal:'pdDash_userJournal',
-    valueHistory:'pdDash_valueHistory', lastSim:'pdDash_lastSim' };
+    valueHistory:'pdDash_valueHistory', lastSim:'pdDash_lastSim', leadHistory:'pdDash_leadHistory', leadOverrides:'pdDash_leadOverrides' };
 
   function lsGet(key, fallback){
     try{ const v = localStorage.getItem(key); return v===null ? fallback : JSON.parse(v); }
@@ -1255,6 +1312,145 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     });
   }
 
+  // ---------------- Hot Lead Scoring: same explainable statistical pattern as the Insights Engine, ----------------
+  // ---------------- pointed at a genuinely different business problem (agent lead engagement) ----------------
+  let leadEngagementHistory = lsGet(LS_KEYS.leadHistory, {});
+  let leadOverrides = lsGet(LS_KEYS.leadOverrides, {}); // per-lead last_contact_days_ago overrides from "Log Contact"
+
+  function getLeadContactDays(lead){
+    return leadOverrides[lead.id] !== undefined ? leadOverrides[lead.id] : lead.last_contact_days_ago;
+  }
+
+  function recordLeadEngagement(id, events){
+    if(!leadEngagementHistory[id]) leadEngagementHistory[id] = [];
+    const arr = leadEngagementHistory[id];
+    arr.push({ date: new Date().toISOString(), events });
+    if(arr.length > 200) arr.shift();
+  }
+
+  // Same fix as the property anomaly detector: test the newest reading against the PRIOR
+  // distribution only, never a baseline that includes itself.
+  function computeLeadZScore(id){
+    const hist = leadEngagementHistory[id];
+    if(!hist || hist.length < 6) return null;
+    const values = hist.map(h=>h.events);
+    const last = values[values.length - 1];
+    const prior = values.slice(0, -1);
+    const mean = prior.reduce((a,b)=>a+b,0) / prior.length;
+    const variance = prior.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / prior.length;
+    const std = Math.sqrt(variance) || 0.5;
+    return (last - mean) / std;
+  }
+
+  function simulateLeadActivity(){
+    const statusEl = document.getElementById('pdLeadSimStatus');
+    DATA.leads.forEach(lead=>{
+      const base = Math.max(0, gaussianRandom(2, 1.3));
+      const jump = Math.random() < 0.12 ? Math.max(0, gaussianRandom(0, 3.5)) : 0; // occasional real spike, same jump-diffusion approach as market sim
+      recordLeadEngagement(lead.id, Math.round(base + jump));
+      if(leadOverrides[lead.id] === undefined) leadOverrides[lead.id] = lead.last_contact_days_ago;
+      leadOverrides[lead.id] = leadOverrides[lead.id] + 1;
+    });
+    lsSet(LS_KEYS.leadHistory, leadEngagementHistory);
+    lsSet(LS_KEYS.leadOverrides, leadOverrides);
+    if(statusEl) statusEl.textContent = 'Simulated \u00b7 ' + new Date().toLocaleTimeString() + ' \u2014 engagement events logged, a day passed for everyone.';
+    renderLeads();
+  }
+
+  function logContact(leadId){
+    leadOverrides[leadId] = 0;
+    lsSet(LS_KEYS.leadOverrides, leadOverrides);
+    renderLeads();
+  }
+
+  const STAGE_WEIGHTS = { new:10, contacted:20, showing:45, offer:70, cold:0, closed:0 };
+  function computeLeadScore(lead){
+    const breakdown = [];
+    let score = 0;
+
+    const stageScore = STAGE_WEIGHTS[lead.stage] ?? 10;
+    score += stageScore;
+    breakdown.push(lead.stage.charAt(0).toUpperCase() + lead.stage.slice(1) + ' stage: +' + stageScore);
+
+    const daysAgo = getLeadContactDays(lead);
+    let recencyScore;
+    if(daysAgo <= 2){ recencyScore = 25; }
+    else if(daysAgo <= 5){ recencyScore = 15; }
+    else if(daysAgo <= 10){ recencyScore = 5; }
+    else { recencyScore = -15; }
+    score += recencyScore;
+    breakdown.push(daysAgo + ' day(s) since contact: ' + (recencyScore>=0?'+':'') + recencyScore);
+
+    const z = computeLeadZScore(lead.id);
+    if(z !== null && z >= 2.0){
+      score += 20;
+      breakdown.push('Engagement spike vs. their own baseline (z=' + z.toFixed(2) + '): +20');
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    return { score, breakdown, z };
+  }
+
+  function leadTemperature(score){
+    if(score >= 60) return 'hot';
+    if(score >= 30) return 'warm';
+    return 'cool';
+  }
+
+  function suggestedLeadNextStep(lead, score, daysAgo){
+    if(lead.stage === 'cold' || daysAgo > 14) return 'Send one low-pressure check-in \u2014 a lot of "cold" leads just need a single reminder that you\u2019re still there, not a hard pitch.';
+    if(score >= 60) return 'Call today. This one\u2019s hot enough that a same-day follow-up meaningfully improves your odds of closing it.';
+    if(score >= 30) return 'Worth reaching out this week \u2014 not urgent, but don\u2019t let it slide past a few days.';
+    return 'Keep them in a nurture sequence \u2014 not worth a phone call yet, but don\u2019t drop them either.';
+  }
+
+  function estimateCommission(lead){
+    const dealValue = (lead.budget_min + lead.budget_max) / 2;
+    const buyerAgentCommission = dealValue * 0.025;   // typical assumption, varies a lot by market
+    const referralCut = buyerAgentCommission * 0.25;  // typical referral-fee assumption, varies by agreement
+    return { dealValue, buyerAgentCommission, referralCut };
+  }
+
+  function renderLeads(){
+    const el = document.getElementById('panel-leads');
+    const scored = DATA.leads.map(lead=>{
+      const { score, breakdown, z } = computeLeadScore(lead);
+      const daysAgo = getLeadContactDays(lead);
+      return { lead, score, breakdown, z, daysAgo, temp: leadTemperature(score), next: suggestedLeadNextStep(lead, score, daysAgo), commission: estimateCommission(lead) };
+    }).sort((a,b)=>b.score - a.score);
+
+    const badge = document.getElementById('pdLeadsBadge');
+    const hotCount = scored.filter(s=>s.temp==='hot').length;
+    if(badge) badge.textContent = hotCount > 0 ? String(hotCount) : '';
+
+    let html = '<div class="pd-section-title"><span class="n">01</span>HOT LEAD SCORING</div>';
+    html += '<div class="pd-insight-intro">Every score below is a stated, auditable rule \u2014 stage weight, days since contact, and a real z-score spike check against each lead\u2019s own engagement history (same statistical technique as the property Insights Engine, pointed at a different problem). No black-box model, no invented advice. Click nothing, and the breakdown is already shown.</div>';
+
+    html += '<div class="pd-lead-controls"><button class="pd-news-loadbtn" id="pdSimLeadsBtn">Simulate New Lead Activity</button><span class="pd-bar-status" id="pdLeadSimStatus">Generates plausible engagement events and advances a day for every lead \u2014 no real API, same honest labeling as the market simulation.</span></div>';
+
+    scored.forEach(s=>{
+      html += '<div class="pd-lead-card ' + s.temp + '" data-lead-id="' + s.lead.id + '">' +
+        '<div class="pd-lead-top"><div><div class="pd-lead-name">' + s.lead.name + ' <span class="pd-stage-badge">' + s.lead.stage + '</span></div>' +
+        '<div class="pd-lead-meta">' + s.lead.source + ' &middot; budget ' + fmt$(s.lead.budget_min) + '&ndash;' + fmt$(s.lead.budget_max) + ' &middot; est. referral ' + fmt$(s.commission.referralCut) + '</div></div>' +
+        '<div class="pd-lead-score"><div class="pd-lead-score-num ' + s.temp + '">' + s.score + '</div><div class="pd-lead-score-label">' + s.temp + '</div></div></div>' +
+        '<div class="pd-lead-notes">' + s.lead.notes + '</div>' +
+        '<div class="pd-lead-breakdown"><b>Why:</b> ' + s.breakdown.join(' &middot; ') + '</div>' +
+        '<div class="pd-lead-next"><b>Next step:</b> ' + s.next + '</div>' +
+        '<div class="pd-lead-actions"><button class="pd-lead-btn" data-log-contact="' + s.lead.id + '">Log Contact Today</button></div>' +
+        '</div>';
+    });
+
+    html += '<div class="pd-note" style="margin-top:14px;">Commission figures assume a 2.5% buyer-agent commission and a 25% referral cut \u2014 both vary a lot by market and agreement. Treat these as illustrative, not a quote.</div>';
+
+    el.innerHTML = html;
+
+    const simBtn = document.getElementById('pdSimLeadsBtn');
+    if(simBtn) simBtn.addEventListener('click', simulateLeadActivity);
+    el.querySelectorAll('[data-log-contact]').forEach(btn=>{
+      btn.addEventListener('click', ()=>logContact(btn.getAttribute('data-log-contact')));
+    });
+  }
+
   function renderArchitecture(){
     const el = document.getElementById('panel-architecture');
     const blocks = [
@@ -1267,6 +1463,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Property Count slider', b:'Each property is tested for an anomaly independently every click, so more properties genuinely means more chances something organic fires \u2014 verified directly: going from 6 to 20 properties roughly doubles the aggregate hit rate (26% \u2192 63% of clicks). Changing it forces a full reset of the simulation, which isn\u2019t just tidiness \u2014 the Time Machine\u2019s combined series requires every owned property\u2019s history to be the same length, so a mixed-history set would silently break it.' },
       { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration, cap-rate outliers, and a dedicated positive callout for whichever property is quietly outperforming its own trend. Every insight carries its exact trigger condition and a suggested next step \u2014 the next step is rule-generated, not invented by a model. Simulated moves now use real Gaussian noise with occasional jump-diffusion events (the same modeling family real quant finance uses for fat-tail moves) instead of uniform randomness \u2014 a bounded uniform distribution can never exceed z\u22481.73, so it could never cross the z\u2265\u20092.0 anomaly threshold at any volatility, which is exactly why 200 clicks once produced zero anomalies. A guaranteed floor now forces one real, threshold-crossing anomaly at least every 7 clicks if nothing organic has fired, so insight generation never goes dry. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts \u2014 casually, weaving in the pre-computed next steps \u2014 in natural language; the model narrates, it never reasons, and never invents advice beyond what the rules already generated. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
       { h:'Mobile responsiveness', b:'Fixed the real gotchas, not just the visible ones: inputs under 16px font auto-zoom on iOS Safari on focus (fixed via a targeted media query), fixed-width property cards were forced to stack on narrow screens, and touch targets were bumped toward the ~44px comfortable-tap guideline. Same single codebase, mobile-first breakpoints layered on top \u2014 not a separate mobile build.' },
+      { h:'Hot Lead Scoring', b:'A genuinely different business problem (agent lead engagement, not property value) running on the exact same explainable pattern as the Insights Engine \u2014 stated rules with point values, plus real z-score spike detection against each lead\u2019s own engagement history, using the same prior-only baseline fix. Every score shows its full breakdown; nothing is a mystery number. Commission figures are clearly labeled as illustrative assumptions (2.5% buyer-agent commission, 25% referral cut), not a quote \u2014 those vary enormously by market and agreement.' },
+      { h:'Connect-your-own-data panel', b:'The GitHub username/repo/token fields are collapsed behind a toggle, closed by default \u2014 this is fictional sample data, so the real dashboard\u2019s reason for showing that bar prominently (protecting real numbers) doesn\u2019t apply here. It auto-expands only for a returning visitor who already has a saved connection; everyone else sees the clean sample experience first, with the capability still there and discoverable, not deleted.' },
       { h:'Device Preview', b:'Rather than just claim this works on mobile, click <code>Preview: Mobile</code> or <code>Preview: Tablet</code> \u2014 it opens a real, live, fully-interactive instance of this same page inside a sized iframe with a device-style frame around it. Same self-referencing trick a lot of internal component-preview tools use, just aimed at proving responsiveness instead of taking it on faith.' },
       { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
       { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
@@ -1311,6 +1509,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     renderActions();
     renderSheet();
     renderInsights();
+    renderLeads();
     renderArchitecture();
   }
 
@@ -1354,8 +1553,20 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     const pathInput = document.getElementById('pdGhPath');
     const tokenInput = document.getElementById('pdGhToken');
     const saveBtn = document.getElementById('pdGhSaveBtn');
+    const toggle = document.getElementById('pdConnectToggle');
+    const panel = document.getElementById('pdConnectPanel');
     const cfg = lsGet(LS_KEYS.githubCfg, null);
     if(cfg){ ownerInput.value = cfg.owner||''; repoInput.value = cfg.repo||''; pathInput.value = cfg.path||'data.json'; tokenInput.value = cfg.token||''; }
+
+    function setOpen(open){
+      panel.classList.toggle('open', open);
+      toggle.innerHTML = (open ? '&#9662; ' : '&#9656; ') + (open ? 'Hide connect panel' : 'Connect your own data (optional)');
+    }
+    // Auto-expand only for a returning visitor who's already configured a connection \u2014
+    // everyone else sees the clean sample demo first, with this discoverable but out of the way.
+    setOpen(!!(cfg && cfg.owner));
+    toggle.addEventListener('click', ()=>{ setOpen(!panel.classList.contains('open')); });
+
     saveBtn.addEventListener('click', async ()=>{
       lsSet(LS_KEYS.githubCfg, { owner:ownerInput.value.trim(), repo:repoInput.value.trim(), path:pathInput.value.trim()||'data.json', token:tokenInput.value.trim() });
       const ok = await loadDataFromGitHub();
@@ -1392,7 +1603,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   function getCommands(){
     const cmds = [];
     [['overview','Go to Overview'],['properties','Go to Properties'],['journal','Go to Journal'],
-     ['actions','Go to Actions'],['sheet','Go to Sheet'],['insights','Go to Insights'],['architecture','Go to Architecture']].forEach(([panel,label])=>{
+     ['actions','Go to Actions'],['sheet','Go to Sheet'],['insights','Go to Insights'],['leads','Go to Leads'],['architecture','Go to Architecture']].forEach(([panel,label])=>{
       cmds.push({ label, hint:'navigate', keywords: panel, run: ()=>{ switchTab(panel); closeCmdk(); } });
     });
     cmds.push({ label:'Simulate Market Update', hint:'action', keywords:'simulate refresh update market', run: ()=>{ simulateMarketUpdate(); closeCmdk(); } });
@@ -1401,6 +1612,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     cmds.push({ label:'Open Time Machine', hint:'action', keywords:'time machine replay history animate scrub', run: ()=>{ closeCmdk(); openTimeMachine(); } });
     cmds.push({ label:'Preview: Mobile', hint:'action', keywords:'device preview mobile phone responsive', run: ()=>{ closeCmdk(); openDevicePreview('mobile'); } });
     cmds.push({ label:'Preview: Tablet', hint:'action', keywords:'device preview tablet ipad responsive', run: ()=>{ closeCmdk(); openDevicePreview('tablet'); } });
+    cmds.push({ label:'Simulate New Lead Activity', hint:'action', keywords:'leads engagement simulate hot score', run: ()=>{ closeCmdk(); simulateLeadActivity(); } });
     DATA.properties.forEach(p=>{
       cmds.push({ label:'View: ' + p.name, hint: CAT_LABEL[p.category], keywords: p.name + ' ' + p.address + ' ' + p.category,
         run: ()=>{
@@ -1408,6 +1620,17 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
           closeCmdk();
           setTimeout(()=>{
             const card = document.querySelector('.pd-property[data-id="' + p.id + '"]');
+            if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+          }, 60);
+        }});
+    });
+    DATA.leads.forEach(lead=>{
+      cmds.push({ label:'Lead: ' + lead.name, hint: lead.stage, keywords: lead.name + ' ' + lead.source + ' ' + lead.stage,
+        run: ()=>{
+          switchTab('leads');
+          closeCmdk();
+          setTimeout(()=>{
+            const card = document.querySelector('.pd-lead-card[data-lead-id="' + lead.id + '"]');
             if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
           }, 60);
         }});
