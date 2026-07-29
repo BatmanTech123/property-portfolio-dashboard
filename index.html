@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Portfolio Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-content: center; }
+
+.pd-dash {
+  position: relative;
+  --bg: #0A0D12;
+  --surface: #12161D;
+  --surface2: #171C24;
+  --border: #262B33;
+  --border-soft: #1D222A;
+  --text: #E8E6DF;
+  --text-muted: #8B9099;
+  --text-dim: #565C66;
+  --cashflow: #3FA88A;
+  --cashflow-dim: #234A3F;
+  --appreciation: #D9A441;
+  --appreciation-dim: #4A3D22;
+  --valueadd: #C1543E;
+  --valueadd-dim: #4A2A22;
+  --hold: #6C87B0;
+  --hold-dim: #26313F;
+  --prospect: #8B9099;
+  --gold: #E8C468;
+
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  border-radius: 14px;
+  overflow: hidden;
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+}
+.pd-dash * { box-sizing: border-box; }
+
+/* ---------- Masthead ---------- */
+.pd-masthead { padding: 28px 32px 20px; border-bottom: 1px solid var(--border);
+  background: radial-gradient(ellipse 600px 200px at 15% 0%, rgba(63,168,138,0.08), transparent), var(--surface); }
+.pd-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cashflow);
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pd-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cashflow); box-shadow: 0 0 8px var(--cashflow); }
+.pd-version-badge { font-family: var(--font-mono); font-size: 10px; color: var(--gold); background: rgba(232,196,104,0.1);
+  border: 1px solid var(--appreciation-dim); border-radius: 10px; padding: 1px 8px; margin-left: 4px; }
+.pd-title-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.pd-title { font-family: var(--font-display); font-weight: 600; font-size: 27px; letter-spacing: -0.01em; color: var(--text); margin: 0; }
+.pd-title em { color: var(--text-muted); font-style: italic; font-weight: 500; }
+.pd-subline { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.pd-total-block { text-align: right; }
+.pd-total-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.pd-total-num { font-family: var(--font-display); font-weight: 600; font-size: 30px; color: var(--gold); line-height: 1.15; }
+.pd-target-bar { margin-top: 22px; }
+.pd-target-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.pd-target-track { height: 6px; border-radius: 3px; background: var(--surface2); border: 1px solid var(--border-soft); overflow: hidden; }
+.pd-target-fill { height: 100%; background: linear-gradient(90deg, var(--cashflow), var(--gold)); border-radius: 3px; }
+
+/* ---------- View toggle / control bars ---------- */
+.pd-viewbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 32px; background: var(--surface2); border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; }
+.pd-viewbar-label { color: var(--text-dim); }
+.pd-view-btn { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; cursor: pointer; }
+.pd-view-btn.active { color: var(--gold); border-color: var(--appreciation-dim); background: rgba(232,196,104,0.1); }
+.pd-viewbar-note { color: var(--text-dim); font-size: 10.5px; }
+
+.pd-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 32px; background: var(--surface2); border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; }
+.pd-bar input[type="text"], .pd-bar input[type="password"] { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 11px; padding: 6px 9px; border-radius: 5px; width: 170px; }
+.pd-bar button { font-family: var(--font-mono); font-size: 11px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 6px 12px; cursor: pointer; }
+.pd-bar button.primary { background: var(--cashflow-dim); border-color: var(--cashflow); color: var(--cashflow); }
+.pd-bar button:hover { border-color: var(--cashflow); }
+.pd-bar-status { color: var(--text-muted); flex: 1; min-width: 160px; }
+
+/* ---------- Tabs ---------- */
+.pd-tabs { display: flex; gap: 2px; padding: 0 32px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.pd-tab { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.04em; color: var(--text-dim); background: none; border: none; padding: 14px 14px 12px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+.pd-tab:hover { color: var(--text-muted); }
+.pd-tab.active { color: var(--text); border-bottom-color: var(--cashflow); }
+
+/* ---------- Main / panels ---------- */
+.pd-main { background: var(--bg); min-height: 400px; }
+.pd-panel { display: none; padding: 26px 32px 34px; }
+.pd-panel.active { display: block; }
+.pd-section-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-soft); }
+.pd-section-title span.n { color: var(--cashflow); margin-right: 8px; }
+
+/* ---------- Cards ---------- */
+.pd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+@media (max-width: 720px) { .pd-grid { grid-template-columns: repeat(2, 1fr); } }
+.pd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.pd-card-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+.pd-card-value { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text); }
+.pd-card-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); margin-top: 4px; }
+
+/* ---------- Category bar ---------- */
+.pd-catbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-soft); margin-bottom: 10px; }
+.pd-catbar-seg { height: 100%; }
+.pd-catlegend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-bottom: 26px; }
+.pd-catlegend .item { display: flex; align-items: center; gap: 6px; }
+.pd-catlegend .sw { width: 9px; height: 9px; border-radius: 2px; }
+.pd-note { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); font-style: italic; margin-top: -18px; margin-bottom: 26px; }
+
+/* ---------- Watchlist cards (sparkline + MA) ---------- */
+.pd-watch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
+@media (max-width: 720px) { .pd-watch-grid { grid-template-columns: repeat(2, 1fr); } }
+.pd-watch-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.pd-watch-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px; }
+.pd-watch-name { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; color: var(--text); }
+.pd-watch-value { font-family: var(--font-mono); font-weight: 600; font-size: 14px; }
+.pd-watch-value.up { color: var(--cashflow); }
+.pd-watch-value.down { color: var(--valueadd); }
+.pd-watch-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-soft); line-height: 1.6; }
+.pd-watch-sub .up { color: var(--cashflow); } .pd-watch-sub .down { color: var(--valueadd); }
+.pd-spark { display: block; }
+.pd-watch-spark { display: flex; justify-content: center; }
+
+/* ---------- Properties list ---------- */
+.pd-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.pd-filter { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 6px 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.pd-filter .sw { width: 7px; height: 7px; border-radius: 50%; }
+.pd-filter.active { color: var(--text); border-color: var(--cashflow); background: var(--cashflow-dim); }
+.pd-properties { display: flex; flex-direction: column; gap: 8px; }
+.pd-property { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 8px; padding: 13px 16px; display: grid; grid-template-columns: 160px 1fr auto; gap: 14px; align-items: center; }
+.pd-property.cat-cashflow { border-left-color: var(--cashflow); }
+.pd-property.cat-appreciation { border-left-color: var(--appreciation); }
+.pd-property.cat-valueadd { border-left-color: var(--valueadd); }
+.pd-property.cat-hold { border-left-color: var(--hold); }
+.pd-property.cat-prospect { border-left-color: var(--prospect); }
+.pd-pname { font-family: var(--font-mono); font-weight: 600; font-size: 13.5px; color: var(--text); }
+.pd-paddr { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.pd-pbody { min-width: 0; }
+.pd-pmeta { display: flex; gap: 12px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); margin-bottom: 5px; flex-wrap: wrap; }
+.pd-pnotes { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.pd-pright { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pd-badge { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid transparent; }
+.pd-badge.b-owned { color: var(--text-dim); border-color: var(--border); }
+.pd-badge.b-prospect { color: var(--gold); border-color: var(--appreciation-dim); background: rgba(217,164,65,0.1); font-weight: 600; }
+.pd-badge.b-watch { color: var(--prospect); border-color: var(--border); }
+
+/* ---------- Journal ---------- */
+.pd-addjournal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 22px; }
+.pd-addjournal-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.pd-addjournal input[type="date"], .pd-addjournal input[type="text"], .pd-addjournal select { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 11.5px; padding: 7px 9px; border-radius: 5px; }
+.pd-addjournal input[type="text"] { flex: 1; min-width: 140px; }
+.pd-addjournal textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--font-body); font-size: 12.5px; padding: 8px 10px; border-radius: 5px; resize: vertical; }
+.pd-addjournal button { font-family: var(--font-mono); font-size: 11px; color: var(--cashflow); background: var(--cashflow-dim); border: 1px solid var(--cashflow); border-radius: 5px; padding: 7px 14px; cursor: pointer; }
+
+.pd-timeline { position: relative; padding-left: 20px; }
+.pd-timeline::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+.pd-tl-item { position: relative; padding-bottom: 18px; }
+.pd-tl-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--bg); border: 2px solid var(--cashflow); }
+.pd-tl-date { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); margin-bottom: 3px; }
+.pd-tl-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; flex-wrap: wrap; }
+.pd-tl-tag { font-family: var(--font-mono); font-weight: 600; font-size: 12.5px; color: var(--text); }
+.pd-tl-action { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; }
+.pd-tl-detail { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+.pd-src-you { color: var(--appreciation); font-style: italic; }
+
+/* ---------- Actions ---------- */
+.pd-actgroup { margin-bottom: 26px; }
+.pd-act-heading { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+.pd-act-heading .count { color: var(--bg); background: var(--text-dim); border-radius: 8px; padding: 1px 7px; font-size: 10px; }
+.pd-actgroup.urgent .pd-act-heading { color: var(--valueadd); }
+.pd-actgroup.urgent .pd-act-heading .count { background: var(--valueadd); }
+.pd-act-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; margin-bottom: 6px; cursor: pointer; }
+.pd-act-item:hover { border-color: var(--text-dim); }
+.pd-checkbox { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--text-dim); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--bg); }
+.pd-act-item.done { opacity: 0.45; }
+.pd-act-item.done .pd-checkbox { background: var(--cashflow); border-color: var(--cashflow); }
+.pd-act-item.done .pd-act-text { text-decoration: line-through; }
+.pd-act-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+.pd-rules-list { display: flex; flex-direction: column; }
+.pd-rule-item { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; color: var(--text-muted); }
+.pd-rule-item:last-child { border-bottom: none; }
+.pd-rule-num { font-family: var(--font-mono); color: var(--cashflow); font-weight: 600; }
+
+/* ---------- Sheet (stat bars) ---------- */
+.pd-sheet-flavor { font-family: var(--font-mono); font-size: 12.5px; color: var(--text); margin-bottom: 8px; }
+.pd-sheet-flavor b { color: var(--gold); }
+.pd-sheet-xp-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+.pd-stat-block { margin-bottom: 20px; }
+.pd-stat-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.pd-stat-name { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.pd-stat-desc { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.pd-stat-track { height: 10px; background: var(--surface2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-soft); }
+.pd-stat-fill { height: 100%; }
+.pd-stat-fill.good { background: linear-gradient(90deg, var(--cashflow-dim), var(--cashflow)); }
+.pd-stat-fill.mid { background: linear-gradient(90deg, var(--appreciation-dim), var(--appreciation)); }
+.pd-stat-fill.bad { background: linear-gradient(90deg, var(--valueadd-dim), var(--valueadd)); }
+.pd-stat-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); margin-top: 5px; }
+
+/* ---------- Architecture tab ---------- */
+.pd-arch-block { margin-bottom: 22px; }
+.pd-arch-head { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--gold); margin-bottom: 8px; }
+.pd-arch-body { font-size: 13px; color: var(--text-muted); line-height: 1.65; }
+.pd-arch-body code { font-family: var(--font-mono); font-size: 11.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--gold); }
+
+/* ---------- Print button / export ---------- */
+.pd-print-btn { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); cursor: pointer; border: 1px solid var(--border); border-radius: 20px; padding: 2px 10px; margin-left: auto; }
+.pd-print-btn:hover { color: var(--cashflow); border-color: var(--cashflow); }
+.pd-print-only { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .pd-print-only, .pd-print-only * { visibility: visible; }
+  .pd-print-only { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff; color: #111; padding: 20px; font-family: Georgia, serif; }
+  .pd-print-only h1 { font-family: 'IBM Plex Mono', monospace; font-size: 16px; }
+  .pd-print-only h2 { font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #999; padding-bottom: 4px; margin: 18px 0 8px; }
+  .pd-print-only .item { font-size: 12px; line-height: 1.6; margin-bottom: 4px; }
+}
+
+/* ---------- Raw-fetch overlay ---------- */
+.pd-raw-overlay { display: none; position: absolute; inset: 0; z-index: 50; background: var(--bg); border-radius: 14px; overflow-y: auto; }
+.pd-raw-overlay.active { display: block; }
+.pd-raw-banner { font-family: var(--font-mono); font-size: 11px; color: var(--bg); background: var(--gold); padding: 10px 20px; text-align: center; font-weight: 600; }
+.pd-raw-inner { padding: 28px 32px 40px; }
+.pd-raw-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cashflow); margin-bottom: 10px; }
+.pd-raw-title { font-family: var(--font-display); font-weight: 600; font-size: 27px; color: var(--text); margin-bottom: 6px; }
+.pd-raw-subline { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); margin-bottom: 22px; }
+.pd-raw-stat { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 8px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.pd-raw-tabs { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin: 22px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.pd-raw-empty { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); font-style: italic; padding: 40px 20px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; margin-bottom: 24px; }
+.pd-raw-footer { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
+
+.pd-changelog-toggle { color: var(--text-dim); cursor: pointer; border-bottom: 1px dotted var(--text-dim); }
+.pd-changelog-toggle:hover { color: var(--cashflow); }
+.pd-changelog { text-align: left; max-width: 480px; margin: 14px auto 0; padding-top: 12px; border-top: 1px solid var(--border-soft); display: none; }
+.pd-changelog-item { display: flex; gap: 10px; padding: 5px 0; font-size: 11px; }
+.pd-changelog-ver { font-family: var(--font-mono); color: var(--gold); min-width: 48px; }
+.pd-changelog-date { font-family: var(--font-mono); color: var(--text-dim); min-width: 76px; }
+.pd-changelog-note { color: var(--text-muted); }
+
+.pd-footer { padding: 14px 32px; border-top: 1px solid var(--border); background: var(--surface); font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="pd-dash" id="pdDash">
+
+  <div class="pd-raw-overlay" id="pdRawOverlay">
+    <div class="pd-raw-banner">&#9888; RECONSTRUCTION &mdash; this is what a fetch with no JavaScript execution sees. No properties, no journal, no stats. Toggle back for the real thing.</div>
+    <div class="pd-raw-inner">
+      <div class="pd-raw-eyebrow">SAMPLE DATA &middot; PROPERTY PORTFOLIO TEMPLATE</div>
+      <div class="pd-raw-title">Property Portfolio <em>&middot; dashboard</em></div>
+      <div class="pd-raw-subline">Sample portfolio &middot; fork this repo to track your own</div>
+      <div class="pd-raw-stat">Total Portfolio Value: <b>$0</b></div>
+      <div class="pd-raw-stat">Toward target: <b>0%</b></div>
+      <div class="pd-raw-stat">Market data: &ldquo;Not simulated yet &mdash; click Simulate Market Update.&rdquo;</div>
+      <div class="pd-raw-tabs">OVERVIEW &middot; PROPERTIES &middot; JOURNAL &middot; ACTIONS &middot; SHEET &middot; ARCHITECTURE</div>
+      <div class="pd-raw-empty">Everything below the tab bar is blank at this point &mdash; every value, every journal entry, every stat is written by JavaScript after the page loads. A fetch, a crawler, or a link-preview card stops here.</div>
+      <div class="pd-raw-footer">PROPERTY PORTFOLIO DASHBOARD &middot; DEMO / TEMPLATE &middot; RUNS LOCALLY, NO SERVER, NO AI &middot; DATA STAYS IN THIS BROWSER (LOCALSTORAGE)</div>
+    </div>
+  </div>
+
+  <header class="pd-masthead">
+    <div class="pd-eyebrow"><span class="dot"></span>SAMPLE DATA &middot; PROPERTY PORTFOLIO TEMPLATE <span id="pdVersionBadge" class="pd-version-badge"></span></div>
+    <div class="pd-title-row">
+      <div>
+        <h1 class="pd-title">Property Portfolio <em>&middot; dashboard</em></h1>
+        <div class="pd-subline">Sample portfolio &middot; fork this repo to track your own</div>
+      </div>
+      <div class="pd-total-block">
+        <div class="pd-total-label">Total Portfolio Value</div>
+        <div class="pd-total-num" id="pdTotalNum">$0</div>
+      </div>
+    </div>
+    <div class="pd-target-bar">
+      <div class="pd-target-row"><span>Toward portfolio target</span><span id="pdTargetPct">0%</span></div>
+      <div class="pd-target-track"><div class="pd-target-fill" id="pdTargetFill" style="width:0%"></div></div>
+    </div>
+  </header>
+
+  <div class="pd-viewbar">
+    <span class="pd-viewbar-label">Viewing as:</span>
+    <button class="pd-view-btn active" id="pdViewLiveBtn">Live Browser</button>
+    <button class="pd-view-btn" id="pdViewRawBtn">Raw Fetch (no JS)</button>
+    <span class="pd-viewbar-note">See what a link preview or crawler sees vs. what you see &mdash; a demo of why client-rendered apps need this distinction understood.</span>
+  </div>
+
+  <div class="pd-bar" id="pdDataBar">
+    <input type="text" id="pdGhOwner" placeholder="GitHub username">
+    <input type="text" id="pdGhRepo" placeholder="private data repo name">
+    <input type="text" id="pdGhPath" placeholder="data.json" value="data.json">
+    <input type="password" id="pdGhToken" placeholder="Personal access token">
+    <button id="pdGhSaveBtn" class="primary">Load My Data</button>
+    <span class="pd-bar-status" id="pdDataStatus">Showing the built-in sample portfolio.</span>
+  </div>
+
+  <div class="pd-bar">
+    <button id="pdSimulateBtn" class="primary">Simulate Market Update</button>
+    <button id="pdPrintBtn">Print Snapshot</button>
+    <span class="pd-bar-status" id="pdSimStatus">No real estate pricing API is free/public, so this demo simulates plausible daily movement &mdash; clearly labeled, not real data. Feeds the same history/sparkline/MA pipeline a real integration would.</span>
+  </div>
+
+  <nav class="pd-tabs" id="pdTabs">
+    <button class="pd-tab active" data-panel="overview">OVERVIEW</button>
+    <button class="pd-tab" data-panel="properties">PROPERTIES</button>
+    <button class="pd-tab" data-panel="journal">JOURNAL</button>
+    <button class="pd-tab" data-panel="actions">ACTIONS</button>
+    <button class="pd-tab" data-panel="sheet">SHEET</button>
+    <button class="pd-tab" data-panel="architecture">ARCHITECTURE</button>
+  </nav>
+
+  <main class="pd-main">
+    <section class="pd-panel active" id="panel-overview"></section>
+    <section class="pd-panel" id="panel-properties"></section>
+    <section class="pd-panel" id="panel-journal"></section>
+    <section class="pd-panel" id="panel-actions"></section>
+    <section class="pd-panel" id="panel-sheet"></section>
+    <section class="pd-panel" id="panel-architecture"></section>
+  </main>
+
+  <div class="pd-footer" id="pdFooter">PROPERTY PORTFOLIO DASHBOARD &middot; DEMO / TEMPLATE &middot; RUNS LOCALLY, NO SERVER, NO AI &middot; DATA STAYS IN THIS BROWSER (LOCALSTORAGE) &middot; <span id="pdVersionFooter" class="pd-changelog-toggle"></span>
+    <div class="pd-changelog" id="pdChangelog"></div>
+  </div>
+
+  <div class="pd-print-only" id="pdPrintView"></div>
+</div>
+
+<script>
+(function(){
+  const ROOT = document.getElementById('pdDash');
+
+  const APP_VERSION = 'v1.0.0';
+  const APP_CHANGELOG = [
+    { version:'v1.0.0', date:'2026-07-29', notes:'Initial release \u2014 forked and generalized from a personal finance dashboard architecture. Public/private GitHub data split, self-built history, gamified status sheet, live/raw view toggle, simulated market updates.' }
+  ];
+
+  const CAT_COLOR = { cashflow:'var(--cashflow)', appreciation:'var(--appreciation)', valueadd:'var(--valueadd)', hold:'var(--hold)', prospect:'var(--prospect)' };
+  const CAT_LABEL = { cashflow:'Cash Flow', appreciation:'Appreciation', valueadd:'Value-Add', hold:'Long-Term Hold', prospect:'Prospect' };
+
+  const DEFAULT_DATA = {
+    meta: { portfolio_name: 'Sample Property Portfolio', target_value: 3000000 },
+    properties: [
+      { id:'p1', name:'Maple Street Duplex', address:'Fictional St, Sample City', category:'cashflow', status:'owned',
+        purchase_price:285000, current_value:340000, monthly_rent:3200, mortgage_balance:210000,
+        notes:'Both units leased through 2027. Stabilized, no near-term turnover risk.' },
+      { id:'p2', name:'Riverside Commons Condo', address:'Riverside Ave, Sample City', category:'appreciation', status:'owned',
+        purchase_price:410000, current_value:465000, monthly_rent:2400, mortgage_balance:320000,
+        notes:'Bought for the neighborhood trajectory, not the cap rate. Rent covers ~70% of PITI.' },
+      { id:'p3', name:'Old Mill Fixer-Upper', address:'Mill Rd, Sample City', category:'valueadd', status:'owned',
+        purchase_price:165000, current_value:190000, monthly_rent:0, mortgage_balance:120000,
+        notes:'Mid-renovation, currently vacant. Kitchen + both baths gutted. Contractor bids pending.' },
+      { id:'p4', name:'Cedar Ridge Rental', address:'Cedar Ridge Ln, Sample City', category:'cashflow', status:'owned',
+        purchase_price:230000, current_value:265000, monthly_rent:2100, mortgage_balance:175000,
+        notes:'Best cap rate in the portfolio. Same tenant 3 years running.' },
+      { id:'p5', name:'Downtown Loft', address:'Main St, Sample City', category:'hold', status:'owned',
+        purchase_price:195000, current_value:310000, monthly_rent:2600, mortgage_balance:0,
+        notes:'Paid off. The ballast position \u2014 rent is pure cash flow, no leverage risk.' },
+      { id:'p6', name:'Sunset Corner Lot', address:'Sunset & 4th, Sample City', category:'prospect', status:'prospect',
+        purchase_price:0, current_value:145000, monthly_rent:0, mortgage_balance:0,
+        notes:'Asking $145K. Not yet purchased. Waiting on comps before making an offer.' }
+    ],
+    watchlist_ids: ['p1','p2','p3','p6'],
+    target_allocation: [
+      { label:'Cash Flow', pct:'35-40', holdings:'Maple Street, Cedar Ridge' },
+      { label:'Appreciation', pct:'20-25', holdings:'Riverside Commons' },
+      { label:'Value-Add', pct:'10-15', holdings:'Old Mill (rotates as projects complete)' },
+      { label:'Long-Term Hold', pct:'20-25', holdings:'Downtown Loft' },
+      { label:'Cash reserves', pct:'5-10', holdings:'Per-property reserve fund' }
+    ],
+    journal: [
+      { date:'2026-05-02', tag:'Maple Street', action:'PURCHASE', detail:'Closed at $285K, 25% down. First cash-flow position in the portfolio.' },
+      { date:'2026-05-20', tag:'Cedar Ridge', action:'LEASE', detail:'Renewed existing tenant at +4% over market comp average.' },
+      { date:'2026-06-11', tag:'Riverside Commons', action:'NOTE', detail:'Neighborhood grocery anchor announced \u2014 thesis for buying here in the first place.' },
+      { date:'2026-06-28', tag:'Old Mill', action:'INSPECTION', detail:'Foundation clean, roof has 5-7 years left. Scope confirmed as kitchen + baths only.' },
+      { date:'2026-07-10', tag:'Downtown Loft', action:'REFI', detail:'Paid off remaining balance early using proceeds from a matured CD. Now debt-free.' },
+      { date:'2026-07-22', tag:'Sunset Corner Lot', action:'PROSPECT', detail:'First walk-through. Zoning confirmed for duplex conversion. Waiting on comps before offering.' }
+    ],
+    actions: {
+      urgent: [
+        { id:'u1', text:'Schedule roof inspection at Cedar Ridge before winter.' },
+        { id:'u2', text:'Renew liability insurance on Maple Street Duplex \u2014 lapses in 30 days.' }
+      ],
+      this_month: [
+        { id:'m1', text:'Get 3 contractor bids for the Old Mill kitchen reno.' },
+        { id:'m2', text:'Run fresh comps on Sunset Corner Lot before making an offer.' }
+      ],
+      ongoing: [
+        { id:'o1', text:'Track local rent comps monthly.' },
+        { id:'o2', text:'Review refinance rates quarterly across all mortgaged properties.' },
+        { id:'o3', text:'Walk every prospect in person before offering \u2014 no exceptions.' }
+      ]
+    },
+    investing_rules: [
+      'Underwrite every deal on cap rate first, appreciation potential second',
+      'Keep 6 months of reserves per property, not pooled across the portfolio',
+      'Never buy a value-add without a contractor bid already in hand',
+      'Walk away if the 1% rule isn\u2019t even close',
+      'Refinance decisions wait for the rate + cash-out math, not vibes',
+      'Only one prospect gets serious diligence at a time',
+      'County records and comps beat an agent\u2019s pitch deck every time'
+    ]
+  };
+
+  let DATA = DEFAULT_DATA;
+
+  // ---------------- local storage layer ----------------
+  const LS_KEYS = { githubCfg:'pdDash_githubCfg', checked:'pdDash_actionsChecked', journal:'pdDash_userJournal',
+    valueHistory:'pdDash_valueHistory', lastSim:'pdDash_lastSim' };
+
+  function lsGet(key, fallback){
+    try{ const v = localStorage.getItem(key); return v===null ? fallback : JSON.parse(v); }
+    catch(e){ return fallback; }
+  }
+  function lsSet(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); return true; }catch(e){ return false; }
+  }
+
+  function b64DecodeUnicode(str){
+    return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+  }
+
+  async function loadDataFromGitHub(){
+    const cfg = lsGet(LS_KEYS.githubCfg, null);
+    const statusEl = document.getElementById('pdDataStatus');
+    if(!cfg || !cfg.owner || !cfg.repo || !cfg.token){
+      if(statusEl) statusEl.textContent = 'Showing the built-in sample portfolio.';
+      return false;
+    }
+    try{
+      const path = cfg.path || 'data.json';
+      const url = 'https://api.github.com/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) + '/contents/' + path;
+      const res = await fetch(url, { headers: { 'Authorization':'Bearer ' + cfg.token, 'Accept':'application/vnd.github+json' } });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      const decoded = b64DecodeUnicode(json.content.replace(/\n/g,''));
+      DATA = JSON.parse(decoded);
+      if(statusEl) statusEl.textContent = 'Loaded your data from ' + cfg.owner + '/' + cfg.repo + ' \u00b7 ' + new Date().toLocaleTimeString();
+      return true;
+    }catch(e){
+      if(statusEl) statusEl.textContent = 'Couldn\u2019t load from GitHub (' + e.message + ') \u2014 showing the built-in sample portfolio.';
+      return false;
+    }
+  }
+
+  function fmt$(n, decimals){
+    decimals = decimals===undefined ? 0 : decimals;
+    return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+  }
+
+  // ---------------- Simulated market update + self-built history ----------------
+  let valueHistory = lsGet(LS_KEYS.valueHistory, {});
+  let simDelta = {}; // last simulated % change per property, for sparkline tone / "today" display
+
+  function recordHistory(id, value){
+    const day = new Date().toISOString().slice(0,10);
+    if(!valueHistory[id]) valueHistory[id] = [];
+    const arr = valueHistory[id];
+    const last = arr[arr.length - 1];
+    if(last && last.date === day){ last.value = value; }
+    else { arr.push({ date: day, value: value }); if(arr.length > 180) arr.shift(); }
+  }
+
+  function simulateMarketUpdate(){
+    const statusEl = document.getElementById('pdSimStatus');
+    DATA.properties.forEach(p=>{
+      const pctChange = (Math.random() - 0.48) * 0.02; // roughly -1% to +1%, slight upward bias
+      p.current_value = Math.round(p.current_value * (1 + pctChange));
+      simDelta[p.id] = pctChange * 100;
+      recordHistory(p.id, p.current_value);
+    });
+    lsSet(LS_KEYS.valueHistory, valueHistory);
+    lsSet(LS_KEYS.lastSim, new Date().toISOString());
+    if(statusEl) statusEl.textContent = 'Simulated \u00b7 ' + new Date().toLocaleTimeString() + ' \u2014 values nudged, history recorded.';
+    renderAll();
+  }
+
+  function sparklineSVG(id){
+    const hist = valueHistory[id];
+    if(!hist || hist.length < 3) return '';
+    const w = 90, h = 22;
+    const values = hist.map(p=>p.value);
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    const pts = values.map((v,i)=>{
+      const x = (i / (values.length - 1)) * w;
+      const y = h - ((v - min) / range) * h;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const trendUp = values[values.length - 1] >= values[0];
+    const color = trendUp ? 'var(--cashflow)' : 'var(--valueadd)';
+    return '<svg class="pd-spark" viewBox="0 0 ' + w + ' ' + h + '"><polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5"/></svg>';
+  }
+
+  function sma(valuesNewestFirst, period){
+    if(valuesNewestFirst.length < period) return null;
+    const window = valuesNewestFirst.slice(0, period);
+    return window.reduce((a,b)=>a+b,0) / period;
+  }
+
+  function getProperty(id){ return DATA.properties.find(p=>p.id === id); }
+
+  // ---------------- Overview ----------------
+  function renderOverview(){
+    const el = document.getElementById('panel-overview');
+    const owned = DATA.properties.filter(p=>p.status === 'owned');
+    const totalValue = owned.reduce((sum,p)=>sum + p.current_value, 0);
+    const totalRent = owned.reduce((sum,p)=>sum + (p.monthly_rent||0), 0);
+    const totalMortgage = owned.reduce((sum,p)=>sum + (p.mortgage_balance||0), 0);
+    const equity = totalValue - totalMortgage;
+
+    let html = '';
+    html += '<div class="pd-section-title"><span class="n">01</span>PORTFOLIO SNAPSHOT</div>';
+    html += '<div class="pd-grid">';
+    html += '<div class="pd-card"><div class="pd-card-label">Owned Properties</div><div class="pd-card-value">' + owned.length + '</div><div class="pd-card-sub">' + DATA.properties.filter(p=>p.status==='prospect').length + ' prospect(s) tracked</div></div>';
+    html += '<div class="pd-card"><div class="pd-card-label">Total Equity</div><div class="pd-card-value">' + fmt$(equity) + '</div><div class="pd-card-sub">of ' + fmt$(totalValue) + ' value</div></div>';
+    html += '<div class="pd-card"><div class="pd-card-label">Monthly Rent Roll</div><div class="pd-card-value">' + fmt$(totalRent) + '</div><div class="pd-card-sub">' + fmt$(totalRent*12) + '/yr gross</div></div>';
+    html += '<div class="pd-card"><div class="pd-card-label">Total Mortgage Debt</div><div class="pd-card-value">' + fmt$(totalMortgage) + '</div><div class="pd-card-sub">' + (totalValue ? Math.round(totalMortgage/totalValue*100) : 0) + '% LTV blended</div></div>';
+    html += '</div>';
+
+    const cats = {};
+    owned.forEach(p=>{ cats[p.category] = (cats[p.category]||0) + p.current_value; });
+    html += '<div class="pd-section-title"><span class="n">02</span>PORTFOLIO MIX &middot; BY VALUE</div>';
+    html += '<div class="pd-catbar">';
+    Object.keys(cats).forEach(c=>{
+      const pct = (cats[c]/totalValue*100);
+      html += '<div class="pd-catbar-seg" style="width:' + pct + '%; background:' + CAT_COLOR[c] + '"></div>';
+    });
+    html += '</div><div class="pd-catlegend">';
+    Object.keys(cats).forEach(c=>{
+      const pct = (cats[c]/totalValue*100).toFixed(1);
+      html += '<div class="item"><span class="sw" style="background:' + CAT_COLOR[c] + '"></span>' + CAT_LABEL[c] + ' &middot; ' + pct + '%</div>';
+    });
+    html += '</div>';
+
+    html += '<div class="pd-section-title"><span class="n">03</span>WATCHLIST</div>';
+    html += '<div class="pd-watch-grid">';
+    DATA.watchlist_ids.forEach(id=>{
+      const p = getProperty(id);
+      if(!p) return;
+      const delta = simDelta[id];
+      const spark = sparklineSVG(id);
+      const valClass = (delta !== undefined) ? (delta >= 0 ? 'up' : 'down') : '';
+      let sub = p.status === 'prospect' ? 'Asking price shown &middot; not yet purchased' : (p.monthly_rent ? fmt$(p.monthly_rent) + '/mo rent' : 'Vacant / no rent roll');
+      if(delta !== undefined){ sub += ' &middot; <span class="' + valClass + '">' + (delta>=0?'+':'') + delta.toFixed(2) + '% last sim</span>'; }
+      const hist = valueHistory[id];
+      if(hist && hist.length >= 5){
+        const valuesNewest = hist.slice().reverse().map(h=>h.value);
+        const ma5 = sma(valuesNewest, 5);
+        if(ma5 !== null){
+          const trend = p.current_value >= ma5 ? 'up' : 'down';
+          sub += '<br>5-sim avg: ' + fmt$(ma5,0) + ' &middot; <span class="' + trend + '">' + (trend==='up'?'above':'below') + ' trend</span>';
+        }
+      }
+      html += '<div class="pd-watch-card"><div class="pd-watch-top"><span class="pd-watch-name">' + p.name + '</span>' + (spark ? '<span class="pd-watch-spark">' + spark + '</span>' : '') + '<span class="pd-watch-value ' + valClass + '">' + fmt$(p.current_value) + '</span></div><div class="pd-watch-sub">' + sub + '</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="pd-note" style="margin-top:0;">Sparklines appear once a property has 3+ simulated updates \u2014 built from your own clicks, no extra API needed.</div>';
+
+    el.innerHTML = html;
+    document.getElementById('pdTotalNum').textContent = fmt$(totalValue);
+    const pct = (totalValue / DATA.meta.target_value * 100);
+    document.getElementById('pdTargetPct').textContent = pct.toFixed(1) + '% of ' + fmt$(DATA.meta.target_value);
+    document.getElementById('pdTargetFill').style.width = Math.min(pct,100) + '%';
+  }
+
+  // ---------------- Properties ----------------
+  function propertyCardHTML(p){
+    let meta = '<span>' + (p.status === 'owned' ? 'owned' : 'prospect') + '</span>';
+    if(p.status === 'owned'){
+      meta += '<span>bought ' + fmt$(p.purchase_price) + '</span>';
+      meta += '<span>mortgage ' + fmt$(p.mortgage_balance) + '</span>';
+      if(p.monthly_rent) meta += '<span>' + fmt$(p.monthly_rent) + '/mo</span>';
+    }
+    const badge = p.status === 'owned' ? '<span class="pd-badge b-owned">OWNED</span>' : '<span class="pd-badge b-prospect">PROSPECT</span>';
+    return '<div class="pd-property cat-' + p.category + '" data-cat="' + p.category + '">' +
+      '<div><div class="pd-pname">' + p.name + '</div><div class="pd-paddr">' + p.address + '</div></div>' +
+      '<div class="pd-pbody"><div class="pd-pmeta">' + meta + '</div><div class="pd-pnotes">' + p.notes + '</div></div>' +
+      '<div class="pd-pright"><div class="pd-watch-value" style="font-size:15px;">' + fmt$(p.current_value) + '</div>' + badge + '</div>' +
+      '</div>';
+  }
+
+  function renderProperties(){
+    const el = document.getElementById('panel-properties');
+    const cats = Array.from(new Set(DATA.properties.map(p=>p.category)));
+    let html = '<div class="pd-section-title"><span class="n">01</span>ALL PROPERTIES &middot; ' + DATA.properties.length + '</div>';
+    html += '<div class="pd-filters"><button class="pd-filter active" data-cat="all">All &middot; ' + DATA.properties.length + '</button>';
+    cats.forEach(c=>{
+      const n = DATA.properties.filter(p=>p.category===c).length;
+      html += '<button class="pd-filter" data-cat="' + c + '"><span class="sw" style="background:' + CAT_COLOR[c] + '"></span>' + CAT_LABEL[c] + ' &middot; ' + n + '</button>';
+    });
+    html += '</div><div class="pd-properties">';
+    DATA.properties.forEach(p=>{ html += propertyCardHTML(p); });
+    html += '</div>';
+
+    html += '<div class="pd-section-title" style="margin-top:26px"><span class="n">02</span>TARGET ALLOCATION</div>';
+    DATA.target_allocation.forEach(r=>{
+      html += '<div class="pd-rule-item"><span class="pd-rule-num">' + r.pct + '%</span><span>' + r.label + ' &mdash; ' + r.holdings + '</span></div>';
+    });
+
+    el.innerHTML = html;
+    el.querySelectorAll('.pd-filter').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        el.querySelectorAll('.pd-filter').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.getAttribute('data-cat');
+        el.querySelectorAll('.pd-property').forEach(card=>{
+          card.style.display = (cat==='all' || card.getAttribute('data-cat')===cat) ? 'grid' : 'none';
+        });
+      });
+    });
+  }
+
+  // ---------------- Journal ----------------
+  function getUserJournal(){ return lsGet(LS_KEYS.journal, []); }
+  function saveUserJournal(list){ lsSet(LS_KEYS.journal, list); }
+  function getAllJournalEntries(){
+    const user = getUserJournal().map(e => Object.assign({}, e, {userAdded:true}));
+    return DATA.journal.concat(user).sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  }
+
+  function tlItemHTML(j){
+    const actionColors = { PURCHASE:'var(--cashflow)', LEASE:'var(--hold)', NOTE:'var(--appreciation)', INSPECTION:'var(--valueadd)', REFI:'var(--cashflow)', PROSPECT:'var(--gold)' };
+    const color = actionColors[j.action] || 'var(--text-dim)';
+    return '<div class="pd-tl-item">' +
+      '<div class="pd-tl-date">' + j.date + (j.userAdded ? ' <span class="pd-src-you">&middot; logged by you</span>' : '') + '</div>' +
+      '<div class="pd-tl-head"><span class="pd-tl-tag">' + j.tag + '</span>' + (j.action ? '<span class="pd-tl-action" style="color:' + color + ';background:' + color + '1a;">' + j.action + '</span>' : '') + '</div>' +
+      '<div class="pd-tl-detail">' + j.detail + '</div>' +
+      '</div>';
+  }
+
+  function renderJournal(){
+    const el = document.getElementById('panel-journal');
+    const todayStr = new Date().toISOString().slice(0,10);
+    let html = '<div class="pd-section-title"><span class="n">01</span>DATED JOURNAL</div>';
+    html += '<div class="pd-addjournal">' +
+      '<div class="pd-addjournal-row"><input type="date" id="pdJDate" value="' + todayStr + '"><input type="text" id="pdJTag" placeholder="Property or topic">' +
+      '<select id="pdJAction"><option value="NOTE">NOTE</option><option value="PURCHASE">PURCHASE</option><option value="LEASE">LEASE</option><option value="INSPECTION">INSPECTION</option><option value="REFI">REFI</option><option value="PROSPECT">PROSPECT</option></select></div>' +
+      '<div class="pd-addjournal-row"><textarea id="pdJDetail" placeholder="What happened / what you decided..." rows="2"></textarea></div>' +
+      '<button id="pdJAddBtn">+ Add entry</button></div>';
+    html += '<div class="pd-timeline" id="pdJournalTimeline"></div>';
+    el.innerHTML = html;
+
+    function renderTimeline(){
+      const tl = document.getElementById('pdJournalTimeline');
+      tl.innerHTML = getAllJournalEntries().slice().reverse().map(tlItemHTML).join('');
+    }
+    renderTimeline();
+
+    document.getElementById('pdJAddBtn').addEventListener('click', ()=>{
+      const date = document.getElementById('pdJDate').value || todayStr;
+      const tag = document.getElementById('pdJTag').value.trim() || 'Note';
+      const action = document.getElementById('pdJAction').value;
+      const detail = document.getElementById('pdJDetail').value.trim();
+      if(!detail){ document.getElementById('pdJDetail').focus(); return; }
+      const list = getUserJournal();
+      list.push({ date, tag, action, detail });
+      saveUserJournal(list);
+      document.getElementById('pdJTag').value = '';
+      document.getElementById('pdJDetail').value = '';
+      renderTimeline();
+      renderSheet();
+    });
+  }
+
+  // ---------------- Actions ----------------
+  function loadChecked(){ return lsGet(LS_KEYS.checked, {}); }
+  function saveChecked(state){ lsSet(LS_KEYS.checked, state); }
+
+  function renderActions(){
+    const el = document.getElementById('panel-actions');
+    const checked = loadChecked();
+    function group(title, items, cls){
+      let h = '<div class="pd-actgroup ' + cls + '"><div class="pd-act-heading">' + title + '<span class="count">' + items.length + '</span></div>';
+      items.forEach(it=>{
+        const isDone = !!checked[it.id];
+        h += '<div class="pd-act-item' + (isDone?' done':'') + '" data-id="' + it.id + '"><div class="pd-checkbox">' + (isDone?'&#10003;':'') + '</div><div class="pd-act-text">' + it.text + '</div></div>';
+      });
+      return h + '</div>';
+    }
+    let html = '<div class="pd-section-title"><span class="n">01</span>PENDING ACTIONS</div>';
+    html += group('URGENT', DATA.actions.urgent, 'urgent');
+    html += group('THIS MONTH', DATA.actions.this_month, 'month');
+    html += group('ONGOING', DATA.actions.ongoing, 'ongoing');
+    html += '<div class="pd-section-title" style="margin-top:26px"><span class="n">02</span>INVESTING RULES</div><div class="pd-rules-list">';
+    DATA.investing_rules.forEach((r,i)=>{ html += '<div class="pd-rule-item"><span class="pd-rule-num">' + (i+1) + '</span><span>' + r + '</span></div>'; });
+    html += '</div>';
+    el.innerHTML = html;
+
+    el.querySelectorAll('.pd-act-item').forEach(item=>{
+      item.addEventListener('click', ()=>{
+        const id = item.getAttribute('data-id');
+        checked[id] = !checked[id];
+        item.classList.toggle('done', !!checked[id]);
+        item.querySelector('.pd-checkbox').innerHTML = checked[id] ? '&#10003;' : '';
+        saveChecked(checked);
+        renderSheet();
+      });
+    });
+  }
+
+  // ---------------- Sheet (gamified status) ----------------
+  function computeSheet(){
+    const now = new Date();
+    const allJournal = getAllJournalEntries();
+    let daysSinceLog = null;
+    if(allJournal.length){
+      const lastDate = allJournal.map(j=>j.date).sort().slice(-1)[0];
+      daysSinceLog = Math.floor((now - new Date(lastDate)) / 86400000);
+    }
+    let discipline;
+    if(daysSinceLog === null) discipline = 0;
+    else if(daysSinceLog <= 7) discipline = 100;
+    else discipline = Math.max(0, 100 - (daysSinceLog - 7) * 10);
+    const disciplineLabel = discipline >= 80 ? 'Sharp' : discipline >= 50 ? 'Slipping' : discipline >= 20 ? 'Rusty' : 'Dormant';
+
+    const owned = DATA.properties.filter(p=>p.status === 'owned');
+    const totalValue = owned.reduce((s,p)=>s+p.current_value,0);
+    const cats = {};
+    owned.forEach(p=>{ cats[p.category] = (cats[p.category]||0) + p.current_value; });
+    const maxShare = totalValue ? Math.max(...Object.values(cats)) / totalValue * 100 : 0;
+    const diversification = Math.round(100 - Math.max(0, maxShare - (100/Object.keys(CAT_LABEL).length)));
+    const diversLabel = diversification >= 80 ? 'Well Spread' : diversification >= 60 ? 'Reasonable' : diversification >= 40 ? 'Concentrated' : 'Heavy';
+
+    const lastSim = lsGet(LS_KEYS.lastSim, null);
+    let hoursSinceSim = null;
+    if(lastSim) hoursSinceSim = Math.floor((now - new Date(lastSim)) / 3600000);
+    const freshness = lastSim ? Math.max(0, 100 - (hoursSinceSim||0) * 2) : 0;
+    const freshLabel = !lastSim ? 'Never Simulated' : freshness >= 70 ? 'Fresh' : freshness >= 30 ? 'Aging' : 'Stale';
+
+    const checked = loadChecked();
+    const openUrgent = DATA.actions.urgent.filter(a=>!checked[a.id]);
+
+    const pct = totalValue / DATA.meta.target_value * 100;
+    const level = Math.min(20, Math.floor(pct / 5) + 1);
+    const xpInLevel = (pct % 5) / 5 * 100;
+
+    return { discipline, disciplineLabel, daysSinceLog, diversification, diversLabel, maxShare, freshness, freshLabel, hoursSinceSim, openUrgentCount: openUrgent.length, level, xpInLevel, pct };
+  }
+
+  function statBarHTML(name, value, label, sub, tone){
+    return '<div class="pd-stat-block"><div class="pd-stat-row"><span class="pd-stat-name">' + name + '</span><span class="pd-stat-desc">' + label + (value !== null ? ' \u00b7 ' + value + '/100' : '') + '</span></div>' +
+      (value !== null ? '<div class="pd-stat-track"><div class="pd-stat-fill ' + tone + '" style="width:' + value + '%"></div></div>' : '') +
+      (sub ? '<div class="pd-stat-sub">' + sub + '</div>' : '') + '</div>';
+  }
+
+  function renderSheet(){
+    const el = document.getElementById('panel-sheet');
+    const s = computeSheet();
+    let html = '<div class="pd-section-title"><span class="n">01</span>PORTFOLIO STATUS SHEET</div>';
+    html += '<div class="pd-sheet-flavor">Class: <b>Property Portfolio Operator</b> &middot; Level ' + s.level + ' of 20</div>';
+    html += '<div class="pd-sheet-xp-label">' + s.pct.toFixed(1) + '% of the way to target &middot; ' + s.xpInLevel.toFixed(0) + '% XP to Level ' + Math.min(20, s.level+1) + '</div>';
+    html += '<div class="pd-stat-track" style="margin-bottom:26px;"><div class="pd-stat-fill good" style="width:' + s.xpInLevel.toFixed(0) + '%"></div></div>';
+
+    html += statBarHTML('Discipline', s.discipline, s.disciplineLabel,
+      s.daysSinceLog === null ? 'No journal entries yet.' : s.daysSinceLog + ' day(s) since your last log.',
+      s.discipline>=80?'good':s.discipline>=50?'mid':'bad');
+
+    html += statBarHTML('Diversification', s.diversification, s.diversLabel,
+      'Largest category is ' + s.maxShare.toFixed(0) + '% of owned value.',
+      s.diversification>=80?'good':s.diversification>=50?'mid':'bad');
+
+    html += statBarHTML('Data Freshness', s.freshness, s.freshLabel,
+      s.hoursSinceSim===null ? 'Click Simulate Market Update to populate this.' : s.hoursSinceSim + ' hour(s) since last simulation.',
+      s.freshness>=70?'good':s.freshness>=30?'mid':'bad');
+
+    html += '<div class="pd-stat-block"><div class="pd-stat-row"><span class="pd-stat-name">Open Urgent Items</span><span class="pd-stat-desc">' + s.openUrgentCount + '</span></div><div class="pd-stat-sub">' + (s.openUrgentCount ? 'Check the Actions tab.' : 'All urgent items cleared.') + '</div></div>';
+
+    html += '<div class="pd-note" style="margin-top:8px;">Every stat above is computed from your own data \u2014 journal dates, category mix, simulation clicks, unchecked actions. Nothing here is random or decorative.</div>';
+    el.innerHTML = html;
+  }
+
+  // ---------------- Architecture (in-app documentation) ----------------
+  function renderArchitecture(){
+    const el = document.getElementById('panel-architecture');
+    const blocks = [
+      { h:'Why this exists', b:'This is a generalized fork of a personal finance dashboard originally built to track a real investment thesis. The property/real-estate framing is sample data \u2014 the architecture underneath tracks any set of quantitative things with categories, history, and a journal.' },
+      { h:'Public / private data split', b:'The app code (this file) is meant to live in a public repo with zero real data in it. Real data lives in a <code>data.json</code> file in a separate <b>private</b> repo, fetched at runtime via the GitHub Contents API using a personal access token scoped to just that one repo. That\u2019s genuine access control from GitHub, not obscurity \u2014 a private repo actually refuses unauthenticated requests.' },
+      { h:'No server, no build step', b:'Everything is one HTML file. No npm install, no framework, no backend. Opens by double-clicking or via GitHub Pages. Persistence is <code>localStorage</code> \u2014 scoped per browser, which is a real tradeoff (no auto-sync across devices) made explicitly, not accidentally.' },
+      { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
+      { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
+      { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
+      { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
+    ];
+    let html = '<div class="pd-section-title"><span class="n">01</span>HOW THIS IS BUILT</div>';
+    blocks.forEach(bl=>{ html += '<div class="pd-arch-block"><div class="pd-arch-head">' + bl.h + '</div><div class="pd-arch-body">' + bl.b + '</div></div>'; });
+    el.innerHTML = html;
+  }
+
+  // ---------------- Print export ----------------
+  function printSnapshot(){
+    const printEl = document.getElementById('pdPrintView');
+    if(!printEl) return;
+    const s = computeSheet();
+    const owned = DATA.properties.filter(p=>p.status === 'owned');
+    const totalValue = owned.reduce((sum,p)=>sum + p.current_value, 0);
+    let html = '<h1>Portfolio Snapshot &middot; ' + new Date().toLocaleDateString() + '</h1>';
+    html += '<h2>Status</h2>';
+    html += '<div class="item"><b>Total Value:</b> ' + fmt$(totalValue) + '</div>';
+    html += '<div class="item"><b>Discipline:</b> ' + s.discipline + '/100 (' + s.disciplineLabel + ')</div>';
+    html += '<div class="item"><b>Diversification:</b> ' + s.diversification + '/100 (' + s.diversLabel + ')</div>';
+    html += '<h2>Properties</h2>';
+    owned.forEach(p=>{ html += '<div class="item"><b>' + p.name + ':</b> ' + fmt$(p.current_value) + '</div>'; });
+    html += '<h2>Still Open</h2>';
+    const checked = loadChecked();
+    const open = DATA.actions.urgent.concat(DATA.actions.this_month).filter(a=>!checked[a.id]);
+    if(open.length){ open.forEach(a=>{ html += '<div class="item">&#9633; ' + a.text + '</div>'; }); }
+    else { html += '<div class="item">All urgent / this-month actions checked off.</div>'; }
+    html += '<h2>Recent Journal</h2>';
+    getAllJournalEntries().slice(-5).reverse().forEach(j=>{ html += '<div class="item"><b>' + j.date + ' \u00b7 ' + j.tag + ':</b> ' + j.detail + '</div>'; });
+    html += '<div class="item" style="margin-top:20px;color:#777;font-size:9px;">Generated locally by this dashboard &middot; ' + APP_VERSION + ' &middot; no data left this browser</div>';
+    printEl.innerHTML = html;
+    window.print();
+  }
+
+  // ---------------- render everything ----------------
+  function renderAll(){
+    renderOverview();
+    renderProperties();
+    renderJournal();
+    renderActions();
+    renderSheet();
+    renderArchitecture();
+  }
+
+  // ---------------- Tabs ----------------
+  function initTabs(){
+    document.querySelectorAll('.pd-tab').forEach(tab=>{
+      tab.addEventListener('click', ()=>{
+        document.querySelectorAll('.pd-tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.pd-panel').forEach(p=>p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.getAttribute('data-panel')).classList.add('active');
+      });
+    });
+  }
+
+  // ---------------- View toggle ----------------
+  function initViewToggle(){
+    const liveBtn = document.getElementById('pdViewLiveBtn');
+    const rawBtn = document.getElementById('pdViewRawBtn');
+    const overlay = document.getElementById('pdRawOverlay');
+    liveBtn.addEventListener('click', ()=>{
+      overlay.classList.remove('active');
+      liveBtn.classList.add('active');
+      rawBtn.classList.remove('active');
+    });
+    rawBtn.addEventListener('click', ()=>{
+      overlay.classList.add('active');
+      rawBtn.classList.add('active');
+      liveBtn.classList.remove('active');
+    });
+  }
+
+  // ---------------- Data bar (GitHub connect) ----------------
+  function initDataBar(){
+    const ownerInput = document.getElementById('pdGhOwner');
+    const repoInput = document.getElementById('pdGhRepo');
+    const pathInput = document.getElementById('pdGhPath');
+    const tokenInput = document.getElementById('pdGhToken');
+    const saveBtn = document.getElementById('pdGhSaveBtn');
+    const cfg = lsGet(LS_KEYS.githubCfg, null);
+    if(cfg){ ownerInput.value = cfg.owner||''; repoInput.value = cfg.repo||''; pathInput.value = cfg.path||'data.json'; tokenInput.value = cfg.token||''; }
+    saveBtn.addEventListener('click', async ()=>{
+      lsSet(LS_KEYS.githubCfg, { owner:ownerInput.value.trim(), repo:repoInput.value.trim(), path:pathInput.value.trim()||'data.json', token:tokenInput.value.trim() });
+      const ok = await loadDataFromGitHub();
+      if(ok) renderAll();
+    });
+  }
+
+  // ---------------- Simulate bar ----------------
+  function initSimBar(){
+    document.getElementById('pdSimulateBtn').addEventListener('click', simulateMarketUpdate);
+    const printBtn = document.getElementById('pdPrintBtn');
+    if(printBtn) printBtn.addEventListener('click', printSnapshot);
+  }
+
+  // ---------------- Version / changelog ----------------
+  function initVersionInfo(){
+    const badge = document.getElementById('pdVersionBadge');
+    if(badge) badge.textContent = APP_VERSION;
+    const footerVer = document.getElementById('pdVersionFooter');
+    if(footerVer) footerVer.textContent = APP_VERSION + ' \u2014 changelog';
+    const panel = document.getElementById('pdChangelog');
+    if(panel){
+      panel.innerHTML = APP_CHANGELOG.map(c => '<div class="pd-changelog-item"><span class="pd-changelog-ver">' + c.version + '</span><span class="pd-changelog-date">' + c.date + '</span><span class="pd-changelog-note">' + c.notes + '</span></div>').join('');
+    }
+    if(footerVer && panel){
+      footerVer.addEventListener('click', ()=>{ panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; });
+    }
+  }
+
+  // ---------------- init ----------------
+  async function bootstrap(){
+    await loadDataFromGitHub();
+    renderAll();
+    initTabs();
+    initViewToggle();
+    initDataBar();
+    initSimBar();
+    initVersionInfo();
+  }
+  bootstrap();
+})();
+</script>
+</body>
+</html>

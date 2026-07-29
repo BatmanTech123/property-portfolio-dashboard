@@ -1,0 +1,196 @@
+{
+  "meta": {
+    "portfolio_name": "Sample Property Portfolio",
+    "target_value": 3000000
+  },
+  "properties": [
+    {
+      "id": "p1",
+      "name": "Maple Street Duplex",
+      "address": "Fictional St, Sample City",
+      "category": "cashflow",
+      "status": "owned",
+      "purchase_price": 285000,
+      "current_value": 340000,
+      "monthly_rent": 3200,
+      "mortgage_balance": 210000,
+      "notes": "Both units leased through 2027. Stabilized, no near-term turnover risk."
+    },
+    {
+      "id": "p2",
+      "name": "Riverside Commons Condo",
+      "address": "Riverside Ave, Sample City",
+      "category": "appreciation",
+      "status": "owned",
+      "purchase_price": 410000,
+      "current_value": 465000,
+      "monthly_rent": 2400,
+      "mortgage_balance": 320000,
+      "notes": "Bought for the neighborhood trajectory, not the cap rate. Rent covers ~70% of PITI."
+    },
+    {
+      "id": "p3",
+      "name": "Old Mill Fixer-Upper",
+      "address": "Mill Rd, Sample City",
+      "category": "valueadd",
+      "status": "owned",
+      "purchase_price": 165000,
+      "current_value": 190000,
+      "monthly_rent": 0,
+      "mortgage_balance": 120000,
+      "notes": "Mid-renovation, currently vacant. Kitchen + both baths gutted. Contractor bids pending."
+    },
+    {
+      "id": "p4",
+      "name": "Cedar Ridge Rental",
+      "address": "Cedar Ridge Ln, Sample City",
+      "category": "cashflow",
+      "status": "owned",
+      "purchase_price": 230000,
+      "current_value": 265000,
+      "monthly_rent": 2100,
+      "mortgage_balance": 175000,
+      "notes": "Best cap rate in the portfolio. Same tenant 3 years running."
+    },
+    {
+      "id": "p5",
+      "name": "Downtown Loft",
+      "address": "Main St, Sample City",
+      "category": "hold",
+      "status": "owned",
+      "purchase_price": 195000,
+      "current_value": 310000,
+      "monthly_rent": 2600,
+      "mortgage_balance": 0,
+      "notes": "Paid off. The ballast position — rent is pure cash flow, no leverage risk."
+    },
+    {
+      "id": "p6",
+      "name": "Sunset Corner Lot",
+      "address": "Sunset & 4th, Sample City",
+      "category": "prospect",
+      "status": "prospect",
+      "purchase_price": 0,
+      "current_value": 145000,
+      "monthly_rent": 0,
+      "mortgage_balance": 0,
+      "notes": "Asking $145K. Not yet purchased. Waiting on comps before making an offer."
+    }
+  ],
+  "watchlist_ids": [
+    "p1",
+    "p2",
+    "p3",
+    "p6"
+  ],
+  "target_allocation": [
+    {
+      "label": "Cash Flow",
+      "pct": "35-40",
+      "holdings": "Maple Street, Cedar Ridge"
+    },
+    {
+      "label": "Appreciation",
+      "pct": "20-25",
+      "holdings": "Riverside Commons"
+    },
+    {
+      "label": "Value-Add",
+      "pct": "10-15",
+      "holdings": "Old Mill (rotates as projects complete)"
+    },
+    {
+      "label": "Long-Term Hold",
+      "pct": "20-25",
+      "holdings": "Downtown Loft"
+    },
+    {
+      "label": "Cash reserves",
+      "pct": "5-10",
+      "holdings": "Per-property reserve fund"
+    }
+  ],
+  "journal": [
+    {
+      "date": "2026-05-02",
+      "tag": "Maple Street",
+      "action": "PURCHASE",
+      "detail": "Closed at $285K, 25% down. First cash-flow position in the portfolio."
+    },
+    {
+      "date": "2026-05-20",
+      "tag": "Cedar Ridge",
+      "action": "LEASE",
+      "detail": "Renewed existing tenant at +4% over market comp average."
+    },
+    {
+      "date": "2026-06-11",
+      "tag": "Riverside Commons",
+      "action": "NOTE",
+      "detail": "Neighborhood grocery anchor announced — thesis for buying here in the first place."
+    },
+    {
+      "date": "2026-06-28",
+      "tag": "Old Mill",
+      "action": "INSPECTION",
+      "detail": "Foundation clean, roof has 5-7 years left. Scope confirmed as kitchen + baths only."
+    },
+    {
+      "date": "2026-07-10",
+      "tag": "Downtown Loft",
+      "action": "REFI",
+      "detail": "Paid off remaining balance early using proceeds from a matured CD. Now debt-free."
+    },
+    {
+      "date": "2026-07-22",
+      "tag": "Sunset Corner Lot",
+      "action": "PROSPECT",
+      "detail": "First walk-through. Zoning confirmed for duplex conversion. Waiting on comps before offering."
+    }
+  ],
+  "actions": {
+    "urgent": [
+      {
+        "id": "u1",
+        "text": "Schedule roof inspection at Cedar Ridge before winter."
+      },
+      {
+        "id": "u2",
+        "text": "Renew liability insurance on Maple Street Duplex — lapses in 30 days."
+      }
+    ],
+    "this_month": [
+      {
+        "id": "m1",
+        "text": "Get 3 contractor bids for the Old Mill kitchen reno."
+      },
+      {
+        "id": "m2",
+        "text": "Run fresh comps on Sunset Corner Lot before making an offer."
+      }
+    ],
+    "ongoing": [
+      {
+        "id": "o1",
+        "text": "Track local rent comps monthly."
+      },
+      {
+        "id": "o2",
+        "text": "Review refinance rates quarterly across all mortgaged properties."
+      },
+      {
+        "id": "o3",
+        "text": "Walk every prospect in person before offering — no exceptions."
+      }
+    ]
+  },
+  "investing_rules": [
+    "Underwrite every deal on cap rate first, appreciation potential second",
+    "Keep 6 months of reserves per property, not pooled across the portfolio",
+    "Never buy a value-add without a contractor bid already in hand",
+    "Walk away if the 1% rule isn’t even close",
+    "Refinance decisions wait for the rate + cash-out math, not vibes",
+    "Only one prospect gets serious diligence at a time",
+    "County records and comps beat an agent’s pitch deck every time"
+  ]
+}
