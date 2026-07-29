@@ -293,7 +293,66 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-property.flash { animation: pdFlash 1.4s ease; }
 @keyframes pdFlash { 0%,100% { background: var(--surface); } 30% { background: var(--cashflow-dim); } }
 
+.pd-device-overlay {
+  display: none; position: fixed; inset: 0; z-index: 998;
+  background: rgba(5,7,10,0.85); align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+.pd-device-overlay.active { display: flex; }
+.pd-device-close {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); cursor: pointer;
+  border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px; background: var(--surface);
+}
+.pd-device-close:hover { color: var(--valueadd); border-color: var(--valueadd); }
+.pd-device-shell {
+  background: #111; border-radius: 34px; padding: 16px 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  position: relative; max-height: 88vh;
+}
+.pd-device-shell.tablet { border-radius: 18px; padding: 18px; }
+.pd-device-shell::before {
+  content: ''; position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  width: 80px; height: 16px; background: #111; border-radius: 10px; z-index: 2;
+}
+.pd-device-shell.tablet::before { display: none; }
+.pd-device-shell iframe { display: block; border: none; border-radius: 22px; background: #fff; max-height: 82vh; }
+
 .pd-footer { padding: 14px 32px; border-top: 1px solid var(--border); background: var(--surface); font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
+
+/* ================= Mobile responsiveness ================= */
+/* iOS Safari auto-zooms on any input/select/textarea under 16px font-size on focus \u2014
+   the single most common mobile-web gotcha. Force 16px on touch-sized screens only,
+   so desktop keeps its tighter mono aesthetic. */
+@media (max-width: 600px) {
+  .pd-dash input, .pd-dash select, .pd-dash textarea { font-size: 16px !important; }
+}
+
+@media (max-width: 600px) {
+  body { padding: 8px; }
+  .pd-masthead { padding: 20px 18px 16px; }
+  .pd-title { font-size: 21px; }
+  .pd-total-num { font-size: 24px; }
+  .pd-title-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .pd-total-block { text-align: left; }
+
+  /* Toolbars: stack instead of cramming into one row that overflows sideways */
+  .pd-viewbar, .pd-bar { flex-direction: column; align-items: stretch; padding: 10px 14px; }
+  .pd-viewbar > *, .pd-bar > * { width: 100%; }
+  .pd-bar input[type="text"], .pd-bar input[type="password"] { width: 100%; box-sizing: border-box; }
+  .pd-cmdk-hint { align-self: flex-start; padding: 6px 12px; } /* bigger tap target \u2014 this is the ONLY way to open the palette with no keyboard */
+
+  /* Property cards: 3 rigid columns don't fit a phone \u2014 stack into one readable column */
+  .pd-property { grid-template-columns: 1fr; }
+  .pd-pright { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+
+  /* Touch targets: bump interactive elements toward the ~44px comfortable-tap guideline */
+  .pd-tab { padding: 14px 16px; font-size: 12px; }
+  .pd-checkbox { width: 22px; height: 22px; }
+  .pd-filter, .pd-view-btn { padding: 8px 14px; }
+  .pd-act-item { padding: 13px 12px; }
+
+  /* Modals: full-bleed on small screens instead of floating with awkward side gaps */
+  .pd-cmdk-box, .pd-tm-box { width: 96vw; }
+  .pd-cmdk-overlay { padding-top: 6vh; }
+}
 </style>
 </head>
 <body>
@@ -338,6 +397,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <button class="pd-view-btn active" id="pdViewLiveBtn">Live Browser</button>
     <button class="pd-view-btn" id="pdViewRawBtn">Raw Fetch (no JS)</button>
     <span class="pd-viewbar-note">See what a link preview or crawler sees vs. what you see &mdash; a demo of why client-rendered apps need this distinction understood.</span>
+    <button class="pd-view-btn" id="pdDeviceMobileBtn">&#128241; Preview Mobile</button>
+    <button class="pd-view-btn" id="pdDeviceTabletBtn">&#128241; Preview Tablet</button>
     <span class="pd-cmdk-hint" id="pdCmdkHint">&#8984;K</span>
   </div>
 
@@ -400,14 +461,22 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       </div>
     </div>
   </div>
+
+  <div class="pd-device-overlay" id="pdDeviceOverlay">
+    <div class="pd-device-close" id="pdDeviceClose">&times; Close preview</div>
+    <div class="pd-device-shell" id="pdDeviceShell">
+      <iframe id="pdDeviceIframe" title="Device preview"></iframe>
+    </div>
+  </div>
 </div>
 
 <script>
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.2.2';
+  const APP_VERSION = 'v1.3.0';
   const APP_CHANGELOG = [
+    { version:'v1.3.0', date:'2026-07-29', notes:'Real mobile responsiveness pass \u2014 fixed the iOS Safari auto-zoom-on-input bug, stacked property cards on narrow screens, bumped touch targets. Added a Device Preview toggle (Mobile/Tablet) that opens a live, interactive framed instance of the app instead of just claiming it works on phones.' },
     { version:'v1.2.2', date:'2026-07-29', notes:'Fixed Time Machine playback: the previous version eased each segment independently, which decelerated to a stop at every single data point. Rebuilt as one continuous eased sweep across the whole run (smootherstep, no seams) with seamless pause/resume from the exact stopped frame.' },
     { version:'v1.2.1', date:'2026-07-29', notes:'Time Machine playback rebuilt on requestAnimationFrame with eased interpolation between recorded points, plus a smoothly counting readout \u2014 replaces the old setInterval snap-to-frame version. Respects prefers-reduced-motion.' },
     { version:'v1.2.0', date:'2026-07-29', notes:'Added the Time Machine \u2014 animated/scrubbable replay of accumulated portfolio history, built entirely from data already being recorded. Also fixed history recording to capture every simulate click instead of deduping by calendar day.' },
@@ -858,6 +927,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
+      { h:'Mobile responsiveness', b:'Fixed the real gotchas, not just the visible ones: inputs under 16px font auto-zoom on iOS Safari on focus (fixed via a targeted media query), fixed-width property cards were forced to stack on narrow screens, and touch targets were bumped toward the ~44px comfortable-tap guideline. Same single codebase, mobile-first breakpoints layered on top \u2014 not a separate mobile build.' },
+      { h:'Device Preview', b:'Rather than just claim this works on mobile, click <code>Preview: Mobile</code> or <code>Preview: Tablet</code> \u2014 it opens a real, live, fully-interactive instance of this same page inside a sized iframe with a device-style frame around it. Same self-referencing trick a lot of internal component-preview tools use, just aimed at proving responsiveness instead of taking it on faith.' },
       { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
       { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
       { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
@@ -988,6 +1059,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     cmds.push({ label:'Print Snapshot', hint:'action', keywords:'print export pdf', run: ()=>{ closeCmdk(); printSnapshot(); } });
     cmds.push({ label:'Toggle Raw / Live View', hint:'action', keywords:'raw fetch crawler view toggle', run: ()=>{ toggleRawView(); closeCmdk(); } });
     cmds.push({ label:'Open Time Machine', hint:'action', keywords:'time machine replay history animate scrub', run: ()=>{ closeCmdk(); openTimeMachine(); } });
+    cmds.push({ label:'Preview: Mobile', hint:'action', keywords:'device preview mobile phone responsive', run: ()=>{ closeCmdk(); openDevicePreview('mobile'); } });
+    cmds.push({ label:'Preview: Tablet', hint:'action', keywords:'device preview tablet ipad responsive', run: ()=>{ closeCmdk(); openDevicePreview('tablet'); } });
     DATA.properties.forEach(p=>{
       cmds.push({ label:'View: ' + p.name, hint: CAT_LABEL[p.category], keywords: p.name + ' ' + p.address + ' ' + p.category,
         run: ()=>{
@@ -1213,6 +1286,30 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     });
   }
 
+  // ---------------- Device Preview (the surprise) ----------------
+  const DEVICE_DIMS = { mobile: { w:375, h:700, cls:'' }, tablet: { w:700, h:900, cls:'tablet' } };
+  function openDevicePreview(kind){
+    const overlay = document.getElementById('pdDeviceOverlay');
+    const shell = document.getElementById('pdDeviceShell');
+    const iframe = document.getElementById('pdDeviceIframe');
+    const d = DEVICE_DIMS[kind];
+    shell.className = 'pd-device-shell' + (d.cls ? ' ' + d.cls : '');
+    iframe.style.width = d.w + 'px';
+    iframe.style.height = d.h + 'px';
+    iframe.src = window.location.href.split('#')[0];
+    overlay.classList.add('active');
+  }
+  function closeDevicePreview(){
+    document.getElementById('pdDeviceOverlay').classList.remove('active');
+    document.getElementById('pdDeviceIframe').src = 'about:blank';
+  }
+  function initDevicePreview(){
+    document.getElementById('pdDeviceMobileBtn').addEventListener('click', ()=>openDevicePreview('mobile'));
+    document.getElementById('pdDeviceTabletBtn').addEventListener('click', ()=>openDevicePreview('tablet'));
+    document.getElementById('pdDeviceClose').addEventListener('click', closeDevicePreview);
+    document.getElementById('pdDeviceOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'pdDeviceOverlay') closeDevicePreview(); });
+  }
+
   // ---------------- init ----------------
   async function bootstrap(){
     await loadDataFromGitHub();
@@ -1224,6 +1321,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     initVersionInfo();
     initCmdk();
     initTimeMachine();
+    initDevicePreview();
   }
   bootstrap();
 })();
