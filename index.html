@@ -273,6 +273,23 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); background: var(--surface2);
 }
 
+.pd-tm-overlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(5,7,10,0.78); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+.pd-tm-overlay.active { display: flex; }
+.pd-tm-box { width: min(640px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding: 20px 22px; }
+.pd-tm-head { font-family: var(--font-display); font-weight: 600; font-size: 18px; color: var(--text); margin-bottom: 4px; display: flex; align-items: baseline; }
+.pd-tm-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); font-weight: 400; margin-left: 10px; }
+.pd-tm-close { margin-left: auto; cursor: pointer; color: var(--text-dim); font-size: 20px; line-height: 1; }
+.pd-tm-close:hover { color: var(--valueadd); }
+.pd-tm-chart { width: 100%; height: 200px; margin: 14px 0 8px; }
+.pd-tm-readout { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); text-align: center; margin-bottom: 14px; min-height: 16px; }
+.pd-tm-controls { display: flex; align-items: center; gap: 14px; }
+.pd-tm-controls button { font-family: var(--font-mono); font-size: 12px; color: var(--cashflow); background: var(--cashflow-dim); border: 1px solid var(--cashflow); border-radius: 6px; padding: 8px 16px; cursor: pointer; white-space: nowrap; }
+.pd-tm-controls input[type="range"] { flex: 1; accent-color: var(--cashflow); }
+
 .pd-property.flash { animation: pdFlash 1.4s ease; }
 @keyframes pdFlash { 0%,100% { background: var(--surface); } 30% { background: var(--cashflow-dim); } }
 
@@ -335,6 +352,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 
   <div class="pd-bar">
     <button id="pdSimulateBtn" class="primary">Simulate Market Update</button>
+    <button id="pdTmOpenBtn">&#9654; Time Machine</button>
     <button id="pdPrintBtn">Print Snapshot</button>
     <span class="pd-bar-status" id="pdSimStatus">No real estate pricing API is free/public, so this demo simulates plausible daily movement &mdash; clearly labeled, not real data. Feeds the same history/sparkline/MA pipeline a real integration would.</span>
   </div>
@@ -370,14 +388,27 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       <div class="pd-cmdk-foot"><span>&uarr;&darr; navigate</span><span>&crarr; select</span><span>esc close</span></div>
     </div>
   </div>
+
+  <div class="pd-tm-overlay" id="pdTmOverlay">
+    <div class="pd-tm-box">
+      <div class="pd-tm-head">Time Machine <span class="pd-tm-sub">&mdash; your accumulated history, replayed</span><span class="pd-tm-close" id="pdTmClose">&times;</span></div>
+      <svg class="pd-tm-chart" id="pdTmChart" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+      <div class="pd-tm-readout" id="pdTmReadout"></div>
+      <div class="pd-tm-controls">
+        <button id="pdTmPlayBtn">&#9654; Play</button>
+        <input type="range" id="pdTmScrubber" min="0" max="0" value="0" step="1">
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.1.0';
+  const APP_VERSION = 'v1.2.0';
   const APP_CHANGELOG = [
+    { version:'v1.2.0', date:'2026-07-29', notes:'Added the Time Machine \u2014 animated/scrubbable replay of accumulated portfolio history, built entirely from data already being recorded. Also fixed history recording to capture every simulate click instead of deduping by calendar day.' },
     { version:'v1.1.0', date:'2026-07-29', notes:'Added a full command palette (\u2318K / Ctrl+K) \u2014 fuzzy search across navigation, actions, and properties, with keyboard nav and a scroll-and-highlight jump to any property.' },
     { version:'v1.0.0', date:'2026-07-29', notes:'Initial release \u2014 forked and generalized from a personal finance dashboard architecture. Public/private GitHub data split, self-built history, gamified status sheet, live/raw view toggle, simulated market updates.' }
   ];
@@ -500,12 +531,10 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   let simDelta = {}; // last simulated % change per property, for sparkline tone / "today" display
 
   function recordHistory(id, value){
-    const day = new Date().toISOString().slice(0,10);
     if(!valueHistory[id]) valueHistory[id] = [];
     const arr = valueHistory[id];
-    const last = arr[arr.length - 1];
-    if(last && last.date === day){ last.value = value; }
-    else { arr.push({ date: day, value: value }); if(arr.length > 180) arr.shift(); }
+    arr.push({ date: new Date().toISOString(), value: value });
+    if(arr.length > 200) arr.shift();
   }
 
   function simulateMarketUpdate(){
@@ -827,6 +856,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
+      { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. It reconstructs a combined portfolio-value series across every recorded step, then lets you scrub or auto-play through it on an SVG line chart. No new data, no new API, no library \u2014 the value was already being captured, it just wasn\u2019t being shown.' },
       { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
       { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
     ];
@@ -955,6 +985,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     cmds.push({ label:'Simulate Market Update', hint:'action', keywords:'simulate refresh update market', run: ()=>{ simulateMarketUpdate(); closeCmdk(); } });
     cmds.push({ label:'Print Snapshot', hint:'action', keywords:'print export pdf', run: ()=>{ closeCmdk(); printSnapshot(); } });
     cmds.push({ label:'Toggle Raw / Live View', hint:'action', keywords:'raw fetch crawler view toggle', run: ()=>{ toggleRawView(); closeCmdk(); } });
+    cmds.push({ label:'Open Time Machine', hint:'action', keywords:'time machine replay history animate scrub', run: ()=>{ closeCmdk(); openTimeMachine(); } });
     DATA.properties.forEach(p=>{
       cmds.push({ label:'View: ' + p.name, hint: CAT_LABEL[p.category], keywords: p.name + ' ' + p.address + ' ' + p.category,
         run: ()=>{
@@ -1024,6 +1055,96 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     });
   }
 
+  // ---------------- Time Machine ----------------
+  let tmSeries = [];
+  let tmPlaying = null;
+
+  function getPortfolioHistorySeries(){
+    const ids = DATA.properties.filter(p=>p.status==='owned').map(p=>p.id);
+    const lengths = ids.map(id => (valueHistory[id]||[]).length);
+    if(!lengths.length) return [];
+    const minLen = Math.min(...lengths);
+    const series = [];
+    for(let i=0; i<minLen; i++){
+      let total = 0, ts = null;
+      ids.forEach(id=>{ const h = valueHistory[id][i]; total += h.value; ts = h.date; });
+      series.push({ date: ts, total });
+    }
+    return series;
+  }
+
+  function drawTmChart(series, currentIdx){
+    const svg = document.getElementById('pdTmChart');
+    const w = 600, h = 220, pad = 20;
+    const values = series.map(s=>s.total);
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    function xy(i, v){
+      const x = pad + (series.length > 1 ? (i/(series.length-1)) * (w - pad*2) : 0);
+      const y = h - pad - ((v - min) / range) * (h - pad*2);
+      return [x, y];
+    }
+    const fullPts = series.map((s,i)=>xy(i,s.total).join(',')).join(' ');
+    const activePts = series.slice(0, currentIdx+1).map((s,i)=>xy(i,s.total).join(',')).join(' ');
+    const cur = xy(currentIdx, series[currentIdx].total);
+    svg.innerHTML =
+      '<polyline points="' + fullPts + '" fill="none" stroke="var(--border)" stroke-width="1.5"/>' +
+      '<polyline points="' + activePts + '" fill="none" stroke="var(--cashflow)" stroke-width="2.5"/>' +
+      '<circle cx="' + cur[0] + '" cy="' + cur[1] + '" r="4.5" fill="var(--gold)"/>';
+  }
+
+  function renderTmFrame(idx){
+    drawTmChart(tmSeries, idx);
+    const s = tmSeries[idx];
+    document.getElementById('pdTmReadout').textContent = 'Step ' + (idx+1) + ' of ' + tmSeries.length + ' \u00b7 ' + new Date(s.date).toLocaleTimeString() + ' \u00b7 ' + fmt$(s.total);
+  }
+
+  function stopTmPlay(){
+    if(tmPlaying){ clearInterval(tmPlaying); tmPlaying = null; document.getElementById('pdTmPlayBtn').innerHTML = '&#9654; Play'; }
+  }
+
+  function openTimeMachine(){
+    tmSeries = getPortfolioHistorySeries();
+    document.getElementById('pdTmOverlay').classList.add('active');
+    const scrubber = document.getElementById('pdTmScrubber');
+    const playBtn = document.getElementById('pdTmPlayBtn');
+    if(tmSeries.length < 2){
+      document.getElementById('pdTmChart').innerHTML = '';
+      document.getElementById('pdTmReadout').textContent = 'Not enough history yet \u2014 click Simulate Market Update a few times, then reopen this.';
+      scrubber.style.display = 'none';
+      playBtn.style.display = 'none';
+      return;
+    }
+    scrubber.style.display = '';
+    playBtn.style.display = '';
+    scrubber.max = tmSeries.length - 1;
+    scrubber.value = tmSeries.length - 1;
+    renderTmFrame(tmSeries.length - 1);
+  }
+  function closeTimeMachine(){
+    document.getElementById('pdTmOverlay').classList.remove('active');
+    stopTmPlay();
+  }
+  function initTimeMachine(){
+    document.getElementById('pdTmOpenBtn').addEventListener('click', openTimeMachine);
+    document.getElementById('pdTmClose').addEventListener('click', closeTimeMachine);
+    document.getElementById('pdTmOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'pdTmOverlay') closeTimeMachine(); });
+    const scrubber = document.getElementById('pdTmScrubber');
+    scrubber.addEventListener('input', ()=>{ stopTmPlay(); renderTmFrame(parseInt(scrubber.value)); });
+    document.getElementById('pdTmPlayBtn').addEventListener('click', ()=>{
+      if(tmPlaying){ stopTmPlay(); return; }
+      if(parseInt(scrubber.value) >= tmSeries.length - 1) scrubber.value = 0;
+      document.getElementById('pdTmPlayBtn').innerHTML = '&#9208; Pause';
+      tmPlaying = setInterval(()=>{
+        let idx = parseInt(scrubber.value);
+        if(idx >= tmSeries.length - 1){ stopTmPlay(); return; }
+        idx++;
+        scrubber.value = idx;
+        renderTmFrame(idx);
+      }, 400);
+    });
+  }
+
   // ---------------- init ----------------
   async function bootstrap(){
     await loadDataFromGitHub();
@@ -1034,6 +1155,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     initSimBar();
     initVersionInfo();
     initCmdk();
+    initTimeMachine();
   }
   bootstrap();
 })();
