@@ -406,8 +406,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.2.1';
+  const APP_VERSION = 'v1.2.2';
   const APP_CHANGELOG = [
+    { version:'v1.2.2', date:'2026-07-29', notes:'Fixed Time Machine playback: the previous version eased each segment independently, which decelerated to a stop at every single data point. Rebuilt as one continuous eased sweep across the whole run (smootherstep, no seams) with seamless pause/resume from the exact stopped frame.' },
     { version:'v1.2.1', date:'2026-07-29', notes:'Time Machine playback rebuilt on requestAnimationFrame with eased interpolation between recorded points, plus a smoothly counting readout \u2014 replaces the old setInterval snap-to-frame version. Respects prefers-reduced-motion.' },
     { version:'v1.2.0', date:'2026-07-29', notes:'Added the Time Machine \u2014 animated/scrubbable replay of accumulated portfolio history, built entirely from data already being recorded. Also fixed history recording to capture every simulate click instead of deduping by calendar day.' },
     { version:'v1.1.0', date:'2026-07-29', notes:'Added a full command palette (\u2318K / Ctrl+K) \u2014 fuzzy search across navigation, actions, and properties, with keyboard nav and a scroll-and-highlight jump to any property.' },
@@ -857,7 +858,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
-      { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback runs on <code>requestAnimationFrame</code> with eased interpolation between each real recorded point, rather than snapping from data point to data point \u2014 the difference between a slideshow and an animation. Respects <code>prefers-reduced-motion</code>. No new data, no library.' },
+      { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
       { h:'Command palette', b:'Press <code>\u2318K</code> / <code>Ctrl+K</code> anywhere. Fuzzy search across every tab and action, plus every property by name or address \u2014 select one and it jumps tabs, scrolls to the card, and flashes it. No framework, no library: a keydown listener, an array filter, and a bit of CSS.' },
       { h:'License', b:'MIT. Fork it, rename the categories, swap the sample data for your own domain, ship it.' }
     ];
@@ -1099,14 +1100,20 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     document.getElementById('pdTmReadout').textContent = 'Step ' + (idx+1) + ' of ' + tmSeries.length + ' \u00b7 ' + new Date(s.date).toLocaleTimeString() + ' \u00b7 ' + fmt$(s.total);
   }
 
-  // ---- smooth playback: requestAnimationFrame + eased interpolation between real data points ----
-  const TM_STEP_MS = 650;
+  // ---- smooth playback: one continuous eased stroke across the whole series, not per-segment ----
+  const TM_MS_PER_STEP = 380;
   let tmRafId = null;
-  let tmAnimFromIdx = 0;
-  let tmAnimStepStart = null;
+  let tmCurrentProgress = 0;   // exact float position, 0..(series.length-1) — always reflects what's on screen
+  let tmPlayStartProgress = 0; // where THIS play run began
+  let tmPlayStartTime = null;
   const tmReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+  // Smootherstep: eases in from rest, eases out to rest, and is mathematically smooth
+  // (continuous velocity AND acceleration) across the entire run \u2014 no seams anywhere,
+  // unlike a hand-stitched piecewise curve which can still hitch where zones meet.
+  function tmSignatureEase(t){
+    return t*t*t*(t*(t*6 - 15) + 10);
+  }
 
   function drawTmInterpolated(fromIdx, toIdx, t){
     const svg = document.getElementById('pdTmChart');
@@ -1131,40 +1138,43 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       '<polyline points="' + activePts + '" fill="none" stroke="var(--cashflow)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<circle cx="' + ix.toFixed(1) + '" cy="' + iy.toFixed(1) + '" r="4.5" fill="var(--gold)"/>';
     document.getElementById('pdTmReadout').textContent = 'Step ' + (fromIdx+1) + (toIdx !== fromIdx ? ' \u2192 ' + (toIdx+1) : '') + ' of ' + tmSeries.length + ' \u00b7 ' + fmt$(Math.round(interpV));
-    document.getElementById('pdTmScrubber').value = t >= 1 ? toIdx : fromIdx;
+    document.getElementById('pdTmScrubber').value = Math.round(fromIdx + t);
   }
 
   function tmAnimationLoop(timestamp){
-    if(tmAnimStepStart === null) tmAnimStepStart = timestamp;
-    const toIdx = Math.min(tmAnimFromIdx + 1, tmSeries.length - 1);
+    if(tmPlayStartTime === null) tmPlayStartTime = timestamp;
+    const totalSteps = tmSeries.length - 1;
+    const remainingSteps = totalSteps - tmPlayStartProgress;
+    if(remainingSteps <= 0){ stopTmPlay(); renderTmFrame(totalSteps); return; }
     if(tmReducedMotion){
-      drawTmInterpolated(toIdx, toIdx, 1);
-      tmAnimFromIdx = toIdx;
-      tmAnimStepStart = null;
-      if(tmAnimFromIdx >= tmSeries.length - 1){ stopTmPlay(); return; }
-      tmRafId = requestAnimationFrame(tmAnimationLoop);
+      tmCurrentProgress = totalSteps;
+      const fromIdx = totalSteps - 1 >= 0 ? totalSteps - 1 : 0;
+      drawTmInterpolated(fromIdx, totalSteps, 1);
+      stopTmPlay();
       return;
     }
-    const rawT = Math.min(1, (timestamp - tmAnimStepStart) / TM_STEP_MS);
-    drawTmInterpolated(tmAnimFromIdx, toIdx, easeInOutCubic(rawT));
-    if(rawT >= 1){
-      tmAnimFromIdx = toIdx;
-      tmAnimStepStart = null;
-      if(tmAnimFromIdx >= tmSeries.length - 1){ stopTmPlay(); return; }
-    }
+    const duration = remainingSteps * TM_MS_PER_STEP;
+    const rawT = Math.min(1, (timestamp - tmPlayStartTime) / duration);
+    const easedT = tmSignatureEase(rawT);
+    tmCurrentProgress = Math.min(totalSteps, tmPlayStartProgress + easedT * remainingSteps);
+    const fromIdx = Math.min(Math.floor(tmCurrentProgress), totalSteps - 1);
+    const toIdx = Math.min(fromIdx + 1, totalSteps);
+    const frac = tmCurrentProgress - fromIdx;
+    drawTmInterpolated(fromIdx, toIdx, frac);
+    if(rawT >= 1){ stopTmPlay(); renderTmFrame(totalSteps); return; }
     tmRafId = requestAnimationFrame(tmAnimationLoop);
   }
 
   function stopTmPlay(){
     if(tmRafId){ cancelAnimationFrame(tmRafId); tmRafId = null; }
-    tmAnimStepStart = null;
+    tmPlayStartTime = null;
     const btn = document.getElementById('pdTmPlayBtn');
     if(btn) btn.innerHTML = '&#9654; Play';
   }
   function startTmPlay(){
-    const scrubber = document.getElementById('pdTmScrubber');
-    tmAnimFromIdx = parseInt(scrubber.value) >= tmSeries.length - 1 ? 0 : parseInt(scrubber.value);
-    tmAnimStepStart = null;
+    if(tmCurrentProgress >= tmSeries.length - 1) tmCurrentProgress = 0;
+    tmPlayStartProgress = tmCurrentProgress; // resume exactly where it was paused, no snap-back
+    tmPlayStartTime = null;
     document.getElementById('pdTmPlayBtn').innerHTML = '&#9208; Pause';
     tmRafId = requestAnimationFrame(tmAnimationLoop);
   }
@@ -1185,6 +1195,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     playBtn.style.display = '';
     scrubber.max = tmSeries.length - 1;
     scrubber.value = tmSeries.length - 1;
+    tmCurrentProgress = tmSeries.length - 1;
     renderTmFrame(tmSeries.length - 1);
   }
   function closeTimeMachine(){
@@ -1196,7 +1207,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     document.getElementById('pdTmClose').addEventListener('click', closeTimeMachine);
     document.getElementById('pdTmOverlay').addEventListener('click', (e)=>{ if(e.target.id === 'pdTmOverlay') closeTimeMachine(); });
     const scrubber = document.getElementById('pdTmScrubber');
-    scrubber.addEventListener('input', ()=>{ stopTmPlay(); tmAnimFromIdx = parseInt(scrubber.value); renderTmFrame(parseInt(scrubber.value)); });
+    scrubber.addEventListener('input', ()=>{ stopTmPlay(); tmCurrentProgress = parseInt(scrubber.value); renderTmFrame(parseInt(scrubber.value)); });
     document.getElementById('pdTmPlayBtn').addEventListener('click', ()=>{
       if(tmRafId){ stopTmPlay(); } else { startTmPlay(); }
     });
