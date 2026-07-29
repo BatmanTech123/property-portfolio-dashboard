@@ -330,12 +330,15 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 .pd-insight-card.anomaly { border-left-color: var(--valueadd); }
 .pd-insight-card.concentration { border-left-color: var(--hold); }
 .pd-insight-card.calm { border-left-color: var(--cashflow); }
+.pd-insight-card.opportunity { border-left-color: var(--appreciation); background: linear-gradient(135deg, rgba(217,164,65,0.06), var(--surface)); }
 .pd-insight-text { font-size: 13.5px; color: var(--text); line-height: 1.55; margin-bottom: 8px; }
 .pd-insight-why {
   font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim);
   padding-top: 8px; border-top: 1px dashed var(--border-soft);
 }
 .pd-insight-why b { color: var(--text-muted); }
+.pd-insight-next { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+.pd-insight-next b { color: var(--cashflow); }
 .pd-insight-empty { font-size: 12.5px; color: var(--text-dim); font-style: italic; padding: 14px 0; }
 
 .pd-ai-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 24px; }
@@ -454,6 +457,13 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     <span class="pd-bar-status">Higher volatility means bigger, more frequent swings. A guaranteed anomaly fires at least every 7 clicks either way, so insights never dry up.</span>
   </div>
 
+  <div class="pd-bar">
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);white-space:nowrap;">Property Count</span>
+    <input type="range" id="pdPropertyCountSlider" min="3" max="20" value="6" style="flex:1;min-width:120px;accent-color:var(--appreciation);">
+    <span class="pd-bar-status" id="pdPropertyCountLabel" style="flex:0 0 auto;min-width:90px;color:var(--text);font-weight:600;">6 properties</span>
+    <span class="pd-bar-status">More properties = more independent chances for an organic insight each click. Changing this resets your simulated history \u2014 required, not optional (the Time Machine needs every property\u2019s history to be the same length).</span>
+  </div>
+
   <nav class="pd-tabs" id="pdTabs">
     <button class="pd-tab active" data-panel="overview">OVERVIEW</button>
     <button class="pd-tab" data-panel="properties">PROPERTIES</button>
@@ -512,8 +522,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
 (function(){
   const ROOT = document.getElementById('pdDash');
 
-  const APP_VERSION = 'v1.4.1';
+  const APP_VERSION = 'v1.5.0';
   const APP_CHANGELOG = [
+    { version:'v1.5.0', date:'2026-07-29', notes:'Insights now casual/conversational with a rule-generated "next step" per card, plus a dedicated positive callout for whichever property is quietly outperforming its own trend. On-device AI narration updated to match the tone and weave in the same next steps. Added a Property Count slider (3-20) \u2014 more properties means more independent chances for an organic insight each click (verified: 6\u219220 properties roughly doubles the hit rate); changing it fully resets the simulation, which is required for the Time Machine to keep working correctly.' },
     { version:'v1.4.1', date:'2026-07-29', notes:'Fixed a real bug: simulated moves used a uniform distribution, which can mathematically never exceed z\u22481.73 \u2014 the anomaly threshold (z\u22652.0) was literally unreachable at any volatility, which is why 200 clicks produced zero insights. Replaced with real Gaussian jump-diffusion noise, added a Market Volatility slider, and a guaranteed floor forcing one real anomaly at least every 7 clicks.' },
     { version:'v1.4.0', date:'2026-07-29', notes:'Added the Insights Engine: real z-score anomaly detection and rule-based diagnostics, fully explainable (every insight shows its exact trigger). Optional progressive-enhancement layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts in natural language when available \u2014 the core insights never depend on it working.' },
     { version:'v1.3.0', date:'2026-07-29', notes:'Real mobile responsiveness pass \u2014 fixed the iOS Safari auto-zoom-on-input bug, stacked property cards on narrow screens, bumped touch targets. Added a Device Preview toggle (Mobile/Tablet) that opens a live, interactive framed instance of the app instead of just claiming it works on phones.' },
@@ -592,6 +603,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
   };
 
   let DATA = DEFAULT_DATA;
+  const BASE_PROPERTIES = JSON.parse(JSON.stringify(DEFAULT_DATA.properties)); // stable reset reference, never mutated
 
   // ---------------- local storage layer ----------------
   const LS_KEYS = { githubCfg:'pdDash_githubCfg', checked:'pdDash_actionsChecked', journal:'pdDash_userJournal',
@@ -722,7 +734,59 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     });
   }
 
-  function sparklineSVG(id){
+  // ---- Property Count slider: more properties = more independent chances for an organic insight
+  // each click (each property is tested for an anomaly separately). Changing this REQUIRES a reset,
+  // not just for a clean demo \u2014 the Time Machine's combined series only works when every owned
+  // property's history array is the same length, so a partial-history property would silently break it. ----
+  const SYNTHETIC_STREETS = ['Willow','Birch','Aspen','Magnolia','Juniper','Cypress','Hawthorne','Sycamore','Poplar','Larkspur','Foxglove','Driftwood','Chestnut','Ridgeline','Fernwood'];
+  const SYNTHETIC_CATS = ['cashflow','appreciation','valueadd','hold'];
+  function generateSyntheticProperty(index){
+    const cat = SYNTHETIC_CATS[index % SYNTHETIC_CATS.length];
+    const baseValue = 180000 + Math.floor(Math.random() * 220000);
+    const rent = cat === 'hold' ? 0 : Math.round(baseValue * (0.0075 + Math.random() * 0.003));
+    const mortgage = Math.round(baseValue * (0.35 + Math.random() * 0.35));
+    const street = SYNTHETIC_STREETS[index % SYNTHETIC_STREETS.length];
+    return {
+      id: 'gen' + index, name: street + ' Street Property', address: street + ' St, Sample City',
+      category: cat, status: 'owned', purchase_price: Math.round(baseValue * 0.87), current_value: baseValue,
+      monthly_rent: rent, mortgage_balance: mortgage,
+      notes: 'Procedurally generated for the Property Count demo \u2014 adjust the slider to add or remove these.'
+    };
+  }
+
+  function applyPropertyCount(count){
+    const base = JSON.parse(JSON.stringify(BASE_PROPERTIES));
+    let newProps = base.slice(0, Math.min(count, base.length));
+    for(let i = base.length; i < count; i++){ newProps.push(generateSyntheticProperty(i)); }
+    DATA.properties = newProps;
+
+    // Full reset of the simulation, not just history \u2014 a different property count is a fresh scenario.
+    valueHistory = {};
+    simDelta = {};
+    clicksSinceAnomaly = 0;
+    lsSet(LS_KEYS.valueHistory, valueHistory);
+    localStorage.removeItem(LS_KEYS.lastSim);
+    lsSet('pdDash_propertyCount', count);
+
+    const statusEl = document.getElementById('pdSimStatus');
+    if(statusEl) statusEl.textContent = 'Reset for ' + count + ' properties \u2014 simulated history cleared, ready for fresh updates.';
+    renderAll();
+  }
+
+  function initPropertyCountSlider(){
+    const slider = document.getElementById('pdPropertyCountSlider');
+    const label = document.getElementById('pdPropertyCountLabel');
+    const saved = lsGet('pdDash_propertyCount', BASE_PROPERTIES.length);
+    slider.value = saved;
+    label.textContent = saved + ' properties';
+    if(saved !== BASE_PROPERTIES.length) applyPropertyCount(saved);
+    slider.addEventListener('change', ()=>{ // 'change' (on release), not 'input' \u2014 this is destructive, don't fire mid-drag
+      const count = parseInt(slider.value);
+      label.textContent = count + ' properties';
+      applyPropertyCount(count);
+    });
+    slider.addEventListener('input', ()=>{ label.textContent = slider.value + ' properties'; });
+  }  function sparklineSVG(id){
     const hist = valueHistory[id];
     if(!hist || hist.length < 3) return '';
     const w = 90, h = 22;
@@ -1043,8 +1107,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       if(zr && Math.abs(zr.z) >= 2){
         insights.push({
           type: 'anomaly',
-          text: p.name + '\u2019s last simulated move (' + (zr.lastChangePct>=0?'+':'') + zr.lastChangePct.toFixed(2) + '%) is statistically unusual for this property.',
-          why: 'Rule: |z-score| \u2265 2.0 against ' + p.name + '\u2019s own history of simulated changes. Actual z = ' + zr.z.toFixed(2) + '.'
+          text: 'Heads up \u2014 ' + p.name + ' just moved ' + (zr.lastChangePct>=0?'+':'') + zr.lastChangePct.toFixed(2) + '%, which is a bigger swing than this property usually sees.',
+          why: 'Rule: |z-score| \u2265 2.0 against ' + p.name + '\u2019s own history of simulated changes. Actual z = ' + zr.z.toFixed(2) + '.',
+          next: 'Worth a quick sanity check \u2014 did anything actually change here (tenant, comps, condition), or is this just noise? Either way, no need to act on one data point alone.'
         });
       }
     });
@@ -1060,8 +1125,9 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     if(maxCat && maxPct >= 55){
       insights.push({
         type: 'concentration',
-        text: CAT_LABEL[maxCat] + ' is ' + maxPct.toFixed(0) + '% of your owned value \u2014 a real concentration, not automatically a problem, but worth naming.',
-        why: 'Rule: any single category \u2265 55% of total owned value triggers this flag. Current: ' + maxPct.toFixed(1) + '%.'
+        text: 'You\u2019re pretty stacked in ' + CAT_LABEL[maxCat] + ' right now \u2014 ' + maxPct.toFixed(0) + '% of everything you own. Not a red flag by itself, just worth knowing.',
+        why: 'Rule: any single category \u2265 55% of total owned value triggers this flag. Current: ' + maxPct.toFixed(1) + '%.',
+        next: 'If your next buy naturally leans a different direction, that\u2019d rebalance this on its own \u2014 no need to sell anything to fix it.'
       });
     }
 
@@ -1081,20 +1147,43 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
         if(g.capRate - avg >= 2){
           insights.push({
             type: 'calm',
-            text: g.p.name + '\u2019s cap rate (' + g.capRate.toFixed(1) + '%) is well above the ' + CAT_LABEL[cat] + ' average (' + avg.toFixed(1) + '%) in your portfolio.',
-            why: 'Rule: cap rate \u2265 2.0 percentage points above category average. ' + g.p.name + ': ' + g.capRate.toFixed(2) + '% vs avg ' + avg.toFixed(2) + '%.'
+            text: g.p.name + ' is quietly outperforming \u2014 its cap rate (' + g.capRate.toFixed(1) + '%) is beating the ' + CAT_LABEL[cat] + ' average (' + avg.toFixed(1) + '%) in your own portfolio.',
+            why: 'Rule: cap rate \u2265 2.0 percentage points above category average. ' + g.p.name + ': ' + g.capRate.toFixed(2) + '% vs avg ' + avg.toFixed(2) + '%.',
+            next: 'Worth figuring out WHY this one\u2019s doing better \u2014 rent level, purchase price, location \u2014 and using that as a template for your next acquisition.'
           });
         }
       });
     });
 
-    // 4. Discipline / backlog, reusing the Sheet's own computed thresholds \u2014 same rules, just narrated
+    // 4. "Beneficial" insight \u2014 the quiet outperformer relative to its OWN trend, using the same 5-sim MA already computed elsewhere
+    let bestAboveMA = null;
+    owned.forEach(p=>{
+      const hist = valueHistory[p.id];
+      if(hist && hist.length >= 6){
+        const valuesNewest = hist.slice().reverse().map(h=>h.value);
+        const ma5 = sma(valuesNewest, 5);
+        if(ma5 !== null){
+          const pctAbove = (p.current_value - ma5) / ma5 * 100;
+          if(pctAbove > 0.4 && (!bestAboveMA || pctAbove > bestAboveMA.pctAbove)) bestAboveMA = { p, pctAbove };
+        }
+      }
+    });
+    if(bestAboveMA){
+      insights.push({
+        type: 'opportunity',
+        text: 'Good one to know: ' + bestAboveMA.p.name + ' has been steadily tracking above its own 5-sim average (' + bestAboveMA.pctAbove.toFixed(1) + '% over trend) \u2014 no drama, just quietly compounding.',
+        why: 'Rule: current value \u2265 0.4% above its own trailing 5-update moving average, and the largest margin among eligible properties.',
+        next: 'Nothing urgent here \u2014 just good to know which property is your steady performer if you\u2019re ever deciding what to hold longest.'
+      });
+    }
+
+    // 5. Discipline / backlog, reusing the Sheet's own computed thresholds \u2014 same rules, just narrated
     const s = computeSheet();
     if(s.discipline < 50){
-      insights.push({ type:'concentration', text:'Discipline has slipped \u2014 ' + (s.daysSinceLog===null?'no journal entries logged yet.':s.daysSinceLog + ' day(s) since your last journal entry.'), why:'Rule: discipline score < 50/100 (decays 10pts/day after a 7-day grace period).' });
+      insights.push({ type:'concentration', text:'Your journal\u2019s gone a bit quiet \u2014 ' + (s.daysSinceLog===null?'nothing logged yet.':s.daysSinceLog + ' day(s) since your last entry.'), why:'Rule: discipline score < 50/100 (decays 10pts/day after a 7-day grace period).', next:'One quick entry resets this \u2014 doesn\u2019t need to be long, just something.' });
     }
     if(s.openUrgentCount > 0){
-      insights.push({ type:'concentration', text: s.openUrgentCount + ' urgent action(s) still open.', why:'Rule: any unchecked item in the Urgent list.' });
+      insights.push({ type:'concentration', text: 'You\u2019ve got ' + s.openUrgentCount + ' urgent action(s) still sitting open.', why:'Rule: any unchecked item in the Urgent list.', next:'Worth clearing at least one before your next simulate click, just so the backlog doesn\u2019t quietly grow.' });
     }
 
     return insights;
@@ -1113,11 +1202,11 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     try{
       statusEl.textContent = 'Requesting a local session from Chrome\u2019s on-device model...';
       const session = await LanguageModel.create({
-        initialPrompts: [{ role:'system', content:'You are a terse, honest real-estate portfolio analyst. Rephrase the given bullet-point facts into 2-3 natural sentences. Do not invent numbers not given. Do not add advice beyond what is stated.' }]
+        initialPrompts: [{ role:'system', content:'You are a friendly, casual real-estate portfolio buddy \u2014 talk like a knowledgeable friend catching someone up over coffee, not a formal analyst. You\u2019ll get a list of facts, each with a suggested next step already attached. Weave the facts and their next steps together into 3-5 warm, conversational sentences. Do not invent any numbers not given to you. Do not add financial advice beyond what\u2019s already suggested in the facts \u2014 your job is tone and flow, not new conclusions.' }]
       });
-      const factText = insights.map(i=>i.text).join(' | ');
+      const factText = insights.map(i=>i.text + (i.next ? ' (Suggested next step: ' + i.next + ')' : '')).join(' | ');
       statusEl.textContent = 'Generating (running entirely on this device, nothing sent anywhere)...';
-      const result = await session.prompt('Facts: ' + (factText || 'Nothing notable is currently flagged.'));
+      const result = await session.prompt('Facts: ' + (factText || 'Nothing notable is currently flagged \u2014 keep it brief and reassuring.'));
       narrationEl.textContent = result;
       narrationEl.classList.add('show');
       statusEl.textContent = 'Generated locally via Chrome\u2019s on-device model \u2014 zero network calls, zero cost.';
@@ -1137,7 +1226,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       html += '<div class="pd-insight-empty">Nothing flagged right now. Click Simulate Market Update a few times to build enough history for anomaly detection to activate.</div>';
     } else {
       insights.forEach(i=>{
-        html += '<div class="pd-insight-card ' + i.type + '"><div class="pd-insight-text">' + i.text + '</div><div class="pd-insight-why"><b>Why:</b> ' + i.why + '</div></div>';
+        html += '<div class="pd-insight-card ' + i.type + '"><div class="pd-insight-text">' + i.text + '</div><div class="pd-insight-why"><b>Why:</b> ' + i.why + '</div>' + (i.next ? '<div class="pd-insight-next"><b>Next step:</b> ' + i.next + '</div>' : '') + '</div>';
       });
     }
 
@@ -1175,7 +1264,8 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
       { h:'Simulated vs. real data sources', b:'No free public API exists for real estate pricing the way Finnhub/Twelve Data exist for stocks, so this demo uses a labeled simulation instead of a fake-real integration. The underlying pipeline \u2014 record a value, keep history, compute a moving average, draw a sparkline \u2014 is identical to what a real API integration would feed. Swapping the simulate button for a real fetch call is a small, contained change.' },
       { h:'The gamified Sheet', b:'Discipline, Diversification, and Data Freshness aren\u2019t decorative \u2014 they\u2019re computed directly from journal dates, category concentration, and simulation timestamps. The idea: a dashboard that tracks your own behavior around the data, not just the data itself.' },
       { h:'Live / Raw view toggle', b:'Click "Raw Fetch" in the top bar. It reconstructs exactly what a tool with no JavaScript execution sees \u2014 a search crawler, a link-preview card, an AI fetching a URL. Everything below the tab bar in that view is genuinely blank, because it is blank until JavaScript runs. Built to make an invisible fact about client-rendered apps visible.' },
-      { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration and cap-rate outliers \u2014 the same statistical foundations anomaly detection and expert systems have used for decades, not a black box. Every insight shows its exact trigger condition. Simulated moves now use real Gaussian noise with occasional jump-diffusion events (the same modeling family real quant finance uses for fat-tail moves) instead of uniform randomness \u2014 a bounded uniform distribution can never exceed z\u22481.73, so it could never cross the z\u2265\u20092.0 anomaly threshold at any volatility, which is exactly why 200 clicks once produced zero anomalies. A guaranteed floor now forces one real, threshold-crossing anomaly at least every 7 clicks if nothing organic has fired, so insight generation never goes dry. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to rephrase the same facts in natural language \u2014 the model narrates, it never reasons; the underlying rules are the source of truth either way. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
+      { h:'Property Count slider', b:'Each property is tested for an anomaly independently every click, so more properties genuinely means more chances something organic fires \u2014 verified directly: going from 6 to 20 properties roughly doubles the aggregate hit rate (26% \u2192 63% of clicks). Changing it forces a full reset of the simulation, which isn\u2019t just tidiness \u2014 the Time Machine\u2019s combined series requires every owned property\u2019s history to be the same length, so a mixed-history set would silently break it.' },
+      { h:'Insights Engine', b:'Real z-score anomaly detection against each property\u2019s own recorded history, plus stated-threshold rules for concentration, cap-rate outliers, and a dedicated positive callout for whichever property is quietly outperforming its own trend. Every insight carries its exact trigger condition and a suggested next step \u2014 the next step is rule-generated, not invented by a model. Simulated moves now use real Gaussian noise with occasional jump-diffusion events (the same modeling family real quant finance uses for fat-tail moves) instead of uniform randomness \u2014 a bounded uniform distribution can never exceed z\u22481.73, so it could never cross the z\u2265\u20092.0 anomaly threshold at any volatility, which is exactly why 200 clicks once produced zero anomalies. A guaranteed floor now forces one real, threshold-crossing anomaly at least every 7 clicks if nothing organic has fired, so insight generation never goes dry. An optional layer feature-detects Chrome\u2019s on-device Prompt API (Gemini Nano) to narrate the same facts \u2014 casually, weaving in the pre-computed next steps \u2014 in natural language; the model narrates, it never reasons, and never invents advice beyond what the rules already generated. That API is still Origin Trial, desktop-only, and inconsistent in practice as of 2026, which is exactly why nothing here depends on it working.' },
       { h:'Mobile responsiveness', b:'Fixed the real gotchas, not just the visible ones: inputs under 16px font auto-zoom on iOS Safari on focus (fixed via a targeted media query), fixed-width property cards were forced to stack on narrow screens, and touch targets were bumped toward the ~44px comfortable-tap guideline. Same single codebase, mobile-first breakpoints layered on top \u2014 not a separate mobile build.' },
       { h:'Device Preview', b:'Rather than just claim this works on mobile, click <code>Preview: Mobile</code> or <code>Preview: Tablet</code> \u2014 it opens a real, live, fully-interactive instance of this same page inside a sized iframe with a device-style frame around it. Same self-referencing trick a lot of internal component-preview tools use, just aimed at proving responsiveness instead of taking it on faith.' },
       { h:'Time Machine', b:'Every Simulate Market Update click was already being recorded to <code>localStorage</code> for the sparklines and moving average \u2014 this just gives that data a second life. Playback is one continuous eased sweep across the entire recorded history \u2014 not per-point easing, which decelerates to a stop at every data point and reads as stuttering. A single smootherstep curve eases in once, holds pace through the middle, eases out once, with matching pause/resume from the exact frame you stopped on. Respects prefers-reduced-motion. No new data, no library.' },
@@ -1569,6 +1659,7 @@ body { margin: 0; padding: 24px; background: #05070A; display: flex; justify-con
     initDataBar();
     initSimBar();
     initVolatilitySlider();
+    initPropertyCountSlider();
     initVersionInfo();
     initCmdk();
     initTimeMachine();
